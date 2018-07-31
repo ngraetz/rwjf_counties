@@ -1,0 +1,41 @@
+GEO.id,Id
+GEO.id2,Id2
+GEO.display-label,Geography
+HD01_VD01,Estimate; Total:
+HD02_VD01,Margin of Error; Total:
+HD01_VD02,Estimate; Male:
+HD02_VD02,Margin of Error; Male:
+HD01_VD03,Estimate; Male: - Less than 9th grade
+HD02_VD03,Margin of Error; Male: - Less than 9th grade
+HD01_VD04,"Estimate; Male: - 9th to 12th grade, no diploma"
+HD02_VD04,"Margin of Error; Male: - 9th to 12th grade, no diploma"
+HD01_VD05,Estimate; Male: - Regular high school diploma
+HD02_VD05,Margin of Error; Male: - Regular high school diploma
+HD01_VD06,Estimate; Male: - GED or alternative credential
+HD02_VD06,Margin of Error; Male: - GED or alternative credential
+HD01_VD07,"Estimate; Male: - Some college, no degree"
+HD02_VD07,"Margin of Error; Male: - Some college, no degree"
+HD01_VD08,Estimate; Male: - Associate's degree
+HD02_VD08,Margin of Error; Male: - Associate's degree
+HD01_VD09,Estimate; Male: - Bachelor's degree
+HD02_VD09,Margin of Error; Male: - Bachelor's degree
+HD01_VD10,Estimate; Male: - Graduate degree
+HD02_VD10,Margin of Error; Male: - Graduate degree
+HD01_VD11,Estimate; Female:
+HD02_VD11,Margin of Error; Female:
+HD01_VD12,Estimate; Female: - Less than 9th grade
+HD02_VD12,Margin of Error; Female: - Less than 9th grade
+HD01_VD13,"Estimate; Female: - 9th to 12th grade, no diploma"
+HD02_VD13,"Margin of Error; Female: - 9th to 12th grade, no diploma"
+HD01_VD14,Estimate; Female: - Regular high school diploma
+HD02_VD14,Margin of Error; Female: - Regular high school diploma
+HD01_VD15,Estimate; Female: - GED or alternative credential
+HD02_VD15,Margin of Error; Female: - GED or alternative credential
+HD01_VD16,"Estimate; Female: - Some college, no degree"
+HD02_VD16,"Margin of Error; Female: - Some college, no degree"
+HD01_VD17,Estimate; Female: - Associate's degree
+HD02_VD17,Margin of Error; Female: - Associate's degree
+HD01_VD18,Estimate; Female: - Bachelor's degree
+HD02_VD18,Margin of Error; Female: - Bachelor's degree
+HD01_VD19,Estimate; Female: - Graduate degree
+HD02_VD19,Margin of Error; Female: - Graduate degree

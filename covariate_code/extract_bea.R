@@ -15,6 +15,7 @@ library(tables)
 library(spdep)
 
 ## Load data and reshape to be by FIPS + year.
+repo <- 'c:/Users/ngraetz/Documents/repos/rwjf_counties/'
 d <- fread("C:/Users/ngraetz/Downloads/CA4/CA4_1969_2016__ALL_AREAS.csv", header = TRUE)
 year_cols <- paste0('year',1969:2016)
 d[, fips := as.character(GeoFIPS)]
@@ -71,7 +72,7 @@ d[, total_employees := `Total employment`]
 
 ## Save.
 d <- d[, c('fips','year','percent_transfers','percent_wage_salary_employment','income_per_capita','total_employees')]
-write.csv(d, 'C:/Users/ngraetz/Documents/Penn/papers/rwjf/covariates/bea_covs.csv', row.names=FALSE)
+write.csv(d, paste0(repo, 'covariate_clean_data/bea_covs.csv'), row.names=FALSE)
 
 d <- fread('C:/Users/ngraetz/Documents/Penn/papers/rwjf/covariates/bea_covs.csv')
 #d <- dcast(d, fips ~ year, value.var = 'percent_transfers')

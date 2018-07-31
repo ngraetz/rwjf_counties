@@ -20,6 +20,17 @@ for(c in unique(col_map[, col_col])) {
   c_split <- as.numeric(unlist(strsplit(c, '-')))
   d[, (v) := substr(V1, c_split[1], c_split[2])]
   ## Add "year" to the variable name if it is year-specific (data are stored wide on year).
-  if(y != '') d[, (v) := paste0(get(v), '_', y)]
+  #if(y != '') d[, (v) := paste0(get(v), '_', y)]
+  if(y != '') setnames(d, v, paste0(v, '_', y)) 
 }
 
+## Format and save only variables we want for now. 
+d[, fips := paste0(`FIPS State Code`, `FIPS County Code`)]
+d_long <- melt(d, id.vars = c('fips','County Name'), measure.vars = names(d)[grep('Total Active M.D.s Non-Federal',names(d))], value.name = 'total_mds')
+d_long[, variable := as.character(variable)]
+d_long[, year := as.numeric(gsub('Total Active M.D.s Non-Federal_', '', variable))]
+d_long[, new_total_mds := as.numeric(total_mds)]
+
+all_fips <- counties$fips
+d_long <- d_long[fips %in% all_fips, ]
+d_long <- d_long[, c('fips','year','total_mds')]

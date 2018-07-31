@@ -353,4 +353,12 @@ make_coef_table <- function(x) {
   return(coefs)
 }
 
+make_beta_table <- function(m, model) {
+  coefs <- data.table(model=model,
+                      name=rownames(m$summary.fixed),
+                      coef=m$summary.fixed$mean,
+                      se=m$summary.fixed$sd)
+  coefs <- make_upper_lower(coefs)
+  return(coefs)
+}
 

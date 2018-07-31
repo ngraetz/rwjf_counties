@@ -1,0 +1,20 @@
+GEO.id,Id
+GEO.id2,Id2
+GEO.display-label,Geography
+VD01,Total:
+VD02,Male:
+VD03,Male: - Less than 9th grade
+VD04,"Male: - 9th to 12th grade, no diploma"
+VD05,Male: - High school graduate (includes equivalency)
+VD06,"Male: - Some college, no degree"
+VD07,Male: - Associate degree
+VD08,Male: - Bachelor's degree
+VD09,Male: - Graduate or professional degree
+VD10,Female:
+VD11,Female: - Less than 9th grade
+VD12,"Female: - 9th to 12th grade, no diploma"
+VD13,Female: - High school graduate (includes equivalency)
+VD14,"Female: - Some college, no degree"
+VD15,Female: - Associate degree
+VD16,Female: - Bachelor's degree
+VD17,Female: - Graduate or professional degree
