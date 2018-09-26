@@ -214,7 +214,7 @@ make_county_map <- function(map_dt, map_sp, map_var, high_is_good, map_title, ma
     values <- c(min(map_limits),diverge_point,max(map_limits))
     redblue <- c('#08519c','#ffffff','#67000d')
     #this_gg <- this_gg + scale_fill_gradientn(colours=redblue, values=values, na.value = "#000000", rescaler = function(x, ...) x, oob = identity)
-    this_gg <- this_gg + scale_fill_gradientn(guide = guide_legend(title = legend_title), limits = map_limits, colours=redblue, values=values, na.value = "#000000", rescaler = function(x, ...) x, oob = identity)
+    this_gg <- this_gg + scale_fill_gradientn(guide = guide_legend(title = legend_title), limits = map_limits, colours=rev(brewer.pal(10,'Spectral')), values=values, na.value = "#000000", rescaler = function(x, ...) x, oob = identity)
   }
   if(!is.null(manual_colors)) this_gg <- this_gg + scale_fill_manual(values = manual_colors, guide = guide_legend(title = legend_title))
   return(this_gg)

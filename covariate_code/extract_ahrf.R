@@ -31,6 +31,29 @@ d_long[, variable := as.character(variable)]
 d_long[, year := as.numeric(gsub('Total Active M.D.s Non-Federal_', '', variable))]
 d_long[, new_total_mds := as.numeric(total_mds)]
 
-all_fips <- counties$fips
-d_long <- d_long[fips %in% all_fips, ]
-d_long <- d_long[, c('fips','year','total_mds')]
+# all <- counties$fips
+# all_missing_fips <- all[!(all %in% d_long[, fips])]
+# for(f in all_missing_fips) {
+#   this_name <- template[fips==f, NAME]
+#   this_state <- substr(f,1,2)
+#   message(paste0(f, ' missing: ', this_name))
+#   this_state <- d_codes[grep(paste0('^',this_state), fips),]
+#   possible_matches <- this_state[grep(this_name, GeoName), c('fips','GeoName')]
+#   for(m in possible_matches[, fips]) message(paste0('          ',m,' in BEA: ', possible_matches[fips==m, GeoName]))
+# }
+
+m <- make_county_map(map_dt = d_long[year==1990, ],
+                     map_sp = counties,
+                     map_var = 'new_total_mds',
+                     legend_title = 'new_total_mds',
+                     high_is_good = TRUE,
+                     map_title = '1990 Transfers, %',
+                     map_limits = c(0,100)) + guides(fill=guide_legend(title="Transfers, %"))
+print(m)
+
+d_long <- d_long[, c('fips','year','new_total_mds')]
+write.csv(d_long, paste0(repo, 'covariate_clean_data/ahrf_covs.csv'), row.names=FALSE)
+
+
+
+

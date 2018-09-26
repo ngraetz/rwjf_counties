@@ -22,6 +22,11 @@ d[, fips := as.character(GeoFIPS)]
 d[nchar(fips)==4, fips := paste0('0',fips)]
 for(v in as.character(1969:2016)) d[, (v) := as.numeric(get(v))]
 
+per <- fread("C:/Users/ngraetz/Downloads/CA35/CA35_1969_2016__ALL_AREAS.csv", header = TRUE)
+per[, fips := as.character(GeoFIPS)]
+per[nchar(fips)==4, fips := paste0('0',fips)]
+for(v in as.character(1969:2016)) per[, (v) := as.numeric(get(v))]
+
 ## Need to fix Virginia FIPS codes.
 # template <- as.data.table(counties@data)
 # write.csv(template, 'C:/Users/ngraetz/Documents/Penn/papers/rwjf/covariates/county_template.csv', row.names=FALSE)

@@ -1,0 +1,135 @@
+---
+title: "Tables testing"
+author: "Nick Graetz"
+output: pdf_document
+header-includes:
+    - \usepackage{caption}
+geometry: margin=2cm
+---
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# Load knitr package and settings
+library(knitr)
+library(data.table)
+library(ggplot2)
+library(formatR)
+options(scipen=999)
+#opts_chunk$set(fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE)
+#opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+knit_hooks$set(small.mar = function(before, options, envir) {
+    if (before)    par(mar=c(1,1,1,1)+.1)  # smaller margin on top and right
+})
+opts_chunk$set(small.mar=TRUE)
+```
+
+\large
+$D_{i,y,a} | m_{i,y,a}, N_{i,y,a} \thicksim \text{Binomial}(m_{i,y,a}, N_{i,y,a})$  
+
+$\text{logit}(m_{i,y,a}) = \alpha + \beta_1 X_{i,y} + \beta_2 \text{Age} + \beta_3 \text{Year} + \epsilon_B$  
+
+$\epsilon_B \thicksim \text{Besag}(0, \tau)$  
+
+$\beta \thicksim \text{Normal(0,1000)}$  
+
+$\tau \thicksim \text{Gamma}(1,10)$  
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+library(kableExtra)
+## Order names
+  metro_names <- c('Lg central metro', 'Lg fringe metro','Md/Sm metro','Nonmetro')
+  region_names <- c('Pacific', 'Appalachia', "East South Central","Mountain","West South Central","New England","South Atlantic","East North Central","West North Central","Middle Atlantic")
+  cov_names <- data.table(name = c('year',
+                                   paste0('as.factor(year)',c(1990,2000,2010)),
+                                   paste0('as.factor(metroname)',metro_names),
+                                   paste0('as.factor(regionname)',region_names),
+                                   "percent_transfers","percent_wage_salary_employment","income_per_capita","total_employees","labor_force","employed","unemployed","percent_unemployment","poverty_all","poverty_0_17","poverty_5_17","median_hh_income","fb","less_12","hs","assoc","college","perc_25_64","mds_pc","Global Moran's I","DIC",'RMSE'),
+                          cov_name = c('Year','1990','2000','2010', metro_names, region_names, 'Transfers','Wage vs salary employment','Median income','Total employees','Labor force','Employed','Unemployed','Unemployment','Poverty','Child poverty','Child poverty','Median HH income','Foreign-born','Less than highschool','High school','Associates','College','Working age','MDs',"Global Moran's I","DIC",'RMSE'),
+                          cov_sort = c(1:40))
+
+format_decimals <- function(dt, v) {
+  dt[nchar(get(v))==3, (v) := paste0(get(v),'0')]
+  dt[nchar(get(v))==1, (v) := paste0(get(v),'.00')]
+}
+  
+## Format table data
+pull_table_data <- function(sex_option, string_names = cov_names, race_option) {
+coefs <- readRDS(paste0('C:/Users/ngraetz/Documents/Penn/papers/rwjf/paa_materials/sex_', sex_option, '_race_', race_option, '_coef_table_just_inla.RDS'))
+coefs[!(name %in% c("Global Moran's I","DIC",'RMSE')), coef := exp(coef)]
+coefs[!(name %in% c('DIC','RMSE')), coef := round(coef, 2)]
+coefs[name == "DIC", coef := round(coef)]
+coefs[name == "RMSE", coef := round(coef, 5)]
+coefs[, coef := as.character(coef)]
+# coefs[p <= 0.05, p_coef := paste0(coef, '*')]
+# coefs[p <= 0.01, p_coef := paste0(coef, '**')]
+# coefs[p <= 0.001, p_coef := paste0(coef, '***')]
+# coefs[!is.na(p_coef), coef := p_coef]
+# coefs[, p_coef := NULL]
+format_decimals(coefs, 'coef')
+coefs[!grepl('-', coef), coef := paste0(' ',coef)]
+coefs[, model := paste0(model, sex_option)]
+## Make uncertainty
+coefs[, upper := as.character(round(upper,2))]
+format_decimals(coefs, 'upper')
+coefs[, lower := as.character(round(lower,2))]
+format_decimals(coefs, 'lower')
+coefs[, sig := ifelse(lower > 1 | upper < 1, 1, 0)]
+coefs[sig==1, coef := paste0(coef,'*')]
+coefs[sig==0, coef := paste0(coef,'!')]
+#coefs[!(name %in% c("Global Moran's I","DIC",'RMSE')), coef := paste0(coef, ' (', lower, '-', upper,')')]
+## Add reference groups for dummies
+ref_coefs <- data.table(model = rep(paste0(c('Model 1', 'Model 2', 'Model 3','Model 4'), sex_option), 2),
+                        name = c(rep('as.factor(metroname)Lg central metro', 4), rep('as.factor(regionname)Pacific', 4)),
+                        coef = rep('--', 8))
+coefs <- rbind(coefs, ref_coefs, fill = TRUE)
+## Add year for AR1 models
+# year_coefs <- data.table(model = paste0(c('Model 4','Model 5'), group),
+#                         name = rep('Year', 2),
+#                         coef = rep('--', 2))
+# coefs <- rbind(coefs, year_coefs, fill = TRUE)
+coefs <- merge(coefs, string_names, by='name')
+return(coefs)
+}
+coefs <- rbindlist(lapply(c(1,2), pull_table_data, race_option = 0))
+coefs[, coef := gsub('[!]',' ',coef)]
+coefs[, coef := paste0(coef,' ')]
+coefs <- dcast(coefs, cov_name + cov_sort ~ model, value.var='coef')
+## Fill in any NAs with --
+for(n in names(coefs)) coefs[is.na(get(n)), (n) := '--']
+#just_names <- cov_names[!(name %in% c('twhk_pv','twhk_is','twhk_ce','fwp_kt')), c('cov_name','cov_sort')]
+#coefs <- merge(coefs, just_names, by='cov_name')
+coefs[, cov := cov_name]
+coefs <- coefs[order(cov_sort)]
+coefs[, cov_sort := NULL]
+coefs[, cov := NULL]
+# coefs <- coefs[, c('cov_name', 'Model 11', 'Model 21', 'Model 31', 'Model 41', 'Model 12', 'Model 22', 'Model 32', 'Model 42')]
+# setcolorder(coefs, c('cov_name', 'Model 11', 'Model 21', 'Model 31', 'Model 41', 'Model 12', 'Model 22', 'Model 32', 'Model 42'))
+coefs <- coefs[, c('cov_name', 'Model 12', 'Model 22', 'Model 32', 'Model 42')]
+setcolorder(coefs, c('cov_name', 'Model 12', 'Model 22', 'Model 32', 'Model 42'))
+
+## Make formatted table
+# for(c in c('Model_1Black_all', 'Model_2Black_all', 'Model_3Black_all', 'Model_4Black_all', 'Model_1White_all', 'Model_2White_all', 'Model_3White_all', 'Model_4White_all')) {
+#   coefs[, (c) := cell_spec(get(c), "latex", bold = ifelse(grepl('[*]', get(c)), TRUE, FALSE))]
+#   coefs[, (c) := gsub('[*]','',get(c))]
+# }
+landscape(kable(coefs, format = 'latex', booktabs = TRUE, caption = '', col.names = c('',rep(c('Model 1', 'Model 2', 'Model 3', 'Model 4'), 1)), digits = 2, escape = FALSE) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 12) %>%
+   add_header_above(c(" " = 1, "Female" = 4)) %>%
+   add_footnote(c("* indicate parameters with 95% of the posterior density above or below 1."), notation='alphabet') %>%
+   group_rows("Metro category", 2, 5) %>%
+   group_rows("Region", 6, 15) %>%
+   group_rows("Social exposures", 16, 21) %>%
+   group_rows("", 22, 24) %>%
+   column_spec(column = 1, width = "15em"))
+```
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+cov_source_table <- fread("C:/Users/ngraetz/Documents/Penn/papers/rwjf/paa_materials/covariate_table.csv")
+landscape(kable(cov_source_table, format = 'latex', booktabs = TRUE, caption = '', col.names = c('','Source','Years','Interpolated'), digits = 2, escape = TRUE, align=c('l','l','l','c')) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 10) %>%
+   group_rows("Socioeconomic", 1, 7) %>%
+   group_rows("Healthcare", 8, 13) %>%
+   group_rows("Health behaviors and risk factors", 14, 19) %>%
+   group_rows("Population composition", 20, 25) %>%
+   column_spec(column = 1, width = "40em") %>%
+   column_spec(column = 2, width = "20em"))
+```

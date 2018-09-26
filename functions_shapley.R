@@ -20,7 +20,6 @@ calculate_contribution <- function(fe, fes, start_year, end_year) {
   calculate_permutation <- function(p, dt) {
     
     ## Select permutation.
-    message(p)
     this_dt <- copy(dt)
     p_option <- fe_permutations[p,]
     
@@ -94,8 +93,14 @@ get_clean_cov_names <- function() {
   metro_names <- c('Lg central metro', 'Lg fringe metro','Md/Sm metro','Nonmetro')
   region_names <- c('Pacific', 'Appalachia', "East South Central","Mountain","West South Central","New England","South Atlantic","East North Central","West North Central","Middle Atlantic")
   metro_region_names <- apply(expand.grid(metro_names, region_names), 1, paste, collapse="_")
-  new_covs <- c("college","poverty_all","percent_transfers","percent_unemployment","perc_25_64","fb")
-  new_cov_names <- c('College','Poverty','Transfers','Unemployment','Percent 25-64','Foreign-born')
+  new_covs <- c("percent_wage_salary_employment","income_per_capita","less_12","college","poverty_all",
+                "percent_transfers","percent_unemployment","perc_25_64","fb","perc_labor","mds_pc",
+                'net_mig_per1000','in_mig_per1000','out_mig_per1000','obesity','net_in_mig','manufacturing',
+                "as_diabetes_prev","pa_prev","obesity_prev","as_heavy_drinking_prev","current_smoker_prev",'log_hh_income')
+  new_cov_names <- c("Perc wage vs salary","Income/pc","Less HS",'College','Poverty','Transfers','Unemployment',
+                     'Percent 25-64','Foreign-born','Labor force','MDs/pc','Net-mig/1000','In-mig/1000','Out-mig/1000',
+                     'Obesity','Net In-mig','Manufacturing',
+                     "Diabetes","Physical activity","Obesity","Heavy drinking","Smoking","HH income")
   cov_names <- data.table(fe = c(paste0('as.factor(year)',c(1990,2000,2010)),
                                  paste0('as.factor(metro_region)',metro_region_names),
                                  'air_EQI_22July2013','water_EQI_22July2013','land_EQI_22July2013',
@@ -103,5 +108,13 @@ get_clean_cov_names <- function() {
                           cov_name = c('1990','2000','2010', metro_region_names, 'Air quality','Water quality','Land quality',
                                        new_cov_names, 'Poverty','Isolation','College education',
                                        'Foreign-born','Poverty','Isolation','College education','Foreign-born', 'Metro level',"Global Moran's I","DIC",'RMSE','Secular trend','Residual'),
-                          cov_sort = c(1:66))
+                          cov_sort = c(1:83))
+}
+
+
+logit <- function(x) {
+  return(log(x / (1-x)))
+}
+inv_logit <- function(x) {
+  return(exp(x)/(1+exp(x)))
 }

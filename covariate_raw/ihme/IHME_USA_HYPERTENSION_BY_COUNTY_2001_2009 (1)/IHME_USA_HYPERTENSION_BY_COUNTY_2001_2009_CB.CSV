@@ -1,0 +1,11 @@
+Label,Definition
+FIPS,Federal Information Processing Standard (FIPS) code for uniquely identifying US states and counties
+State ,US state name
+County,US county name
+Race,"all (all races combined), black (non-Hispanic black), hispanic, other (American Indian, Native Alaskan, Asian or Pacific Islander, and other race not specified), white"
+Total,"total hypertension prevalence (among all respondents, percentage of those who reported systolic BP of at least 140mm HG and/or self-reported taking medication)"
+Self-reported,percentage of respondents who reported being told by a doctor or other healthcare professional that they had hypertension
+Treatment,"among prevalent cases, those who report taking prescribed medication"
+Control,"among prevalent cases, the percentage of respondents who reported taking prescribed medication and SBP <140 mm Hg"
+Uncontrolled,percentage of respondents who reported being told by a doctor or other healthcare professional that they had hypertension and SBP of 140 mm Hg or higher
+Awareness,"among prevalent cases, the percentage of people who have hypertension and know it"

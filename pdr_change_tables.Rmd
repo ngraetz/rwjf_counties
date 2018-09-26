@@ -1,0 +1,105 @@
+---
+title: "Tables testing"
+author: "Nick Graetz"
+output: pdf_document
+
+---
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# Load knitr package and settings
+library(knitr)
+library(data.table)
+library(ggplot2)
+library(formatR)
+library(kableExtra)
+options(scipen=999)
+#opts_chunk$set(fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE)
+#opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+knit_hooks$set(small.mar = function(before, options, envir) {
+    if (before)    par(mar=c(1,1,1,1)+.1)  # smaller margin on top and right
+})
+opts_chunk$set(small.mar=TRUE)
+```
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+## Order names
+repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
+source(paste0(repo, 'functions.R'))
+source(paste0(repo, 'functions_shapley.R'))
+cov_names <- get_clean_cov_names()
+setnames(cov_names,'fe','name')
+
+covs <- c("percent_transfers","mds_pc","obesity","college","net_in_mig","manufacturing")
+change_male <- fread(paste0('C:/Users/ngraetz/Documents/Penn/papers/rwjf/results/irma_pdr/change1_Male.csv'))
+change_female <- fread(paste0('C:/Users/ngraetz/Documents/Penn/papers/rwjf/results/irma_pdr/change1_Female.csv'))
+change <- rbind(change_male,change_female)
+setcolorder(change, c('region_name',
+            names(change)[grep('Large Central Metro', names(change))],
+            names(change)[grep('Large Metro Suburb', names(change))],
+            names(change)[grep('Small Metro', names(change))],
+            names(change)[grep('Nonmetro', names(change))]))
+cov_names <- names(change)[grep('Large Central Metro', names(change))]
+cov_names <- gsub('_Large Central Metro','',cov_names)
+cov_names <- gsub('change2_','',cov_names)
+#change[, `change2_ex_Large Central Metro` := gsub(' ','\n',`change2_ex_Large Central Metro`)]
+#change[, `change2_ex_Large Central Metro` := linebreak(`change2_ex_Large Central Metro`)]
+
+table_1 <- change[,c(1,2:15)]
+table_2 <- change[,c(1,16:29)]
+
+## Make formatted table WITH CHANGE IN LEVELS
+landscape(kable(table_1, format = 'latex', booktabs = TRUE, caption = 'Change in life expectancy and contextual covariates, 1990-2015', col.names = c('',rep(c('ex','Transfers','MDs','Obesity','College','In-mig','Manuf'),2)), digits = 2, escape = FALSE) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 8) %>%
+   add_header_above(c(" " = 1, 'Large Central Metro' = 7,  "Large Metro Suburb" = 7)) %>%
+   group_rows("Male", 1, 10) %>%
+   group_rows("Female", 11, 20) %>%
+   column_spec(column = 1, width = "10em"))
+landscape(kable(table_1, format = 'latex', booktabs = TRUE, caption = 'Change in life expectancy and contextual covariates, 1990-2015', col.names = c('',rep(c('ex','Transfers','MDs','Obesity','College','In-mig','Manuf'),2)), digits = 2, escape = FALSE) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 8) %>%
+   add_header_above(c(" " = 1, "Small Metro" = 7, "Nonmetro" = 7)) %>%
+   group_rows("Male", 1, 10) %>%
+   group_rows("Female", 11, 20) %>%
+   column_spec(column = 1, width = "10em"))
+```
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+## Order names
+repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
+source(paste0(repo, 'functions.R'))
+source(paste0(repo, 'functions_shapley.R'))
+cov_names <- get_clean_cov_names()
+setnames(cov_names,'fe','name')
+
+covs <- c("percent_transfers","mds_pc","obesity","college","net_in_mig","manufacturing")
+change_male <- fread(paste0('C:/Users/ngraetz/Documents/Penn/papers/rwjf/results/irma_pdr/change2_Male.csv'))
+change_female <- fread(paste0('C:/Users/ngraetz/Documents/Penn/papers/rwjf/results/irma_pdr/change2_Female.csv'))
+change <- rbind(change_male,change_female)
+setcolorder(change, c('region_name',
+            names(change)[grep('Large Central Metro', names(change))],
+            names(change)[grep('Large Metro Suburb', names(change))],
+            names(change)[grep('Small Metro', names(change))],
+            names(change)[grep('Nonmetro', names(change))]))
+cov_names <- names(change)[grep('Large Central Metro', names(change))]
+cov_names <- gsub('_Large Central Metro','',cov_names)
+cov_names <- gsub('change2_','',cov_names)
+#change[, `change2_ex_Large Central Metro` := gsub(' ','\n',`change2_ex_Large Central Metro`)]
+#change[, `change2_ex_Large Central Metro` := linebreak(`change2_ex_Large Central Metro`)]
+
+table_1 <- change[,c(1,2:15)]
+table_2 <- change[,c(1,16:29)]
+
+## Make formatted table WITH CHANGE IN LEVELS
+landscape(kable(table_2, format = 'latex', booktabs = TRUE, caption = 'Change in life expectancy and contextual covariates, 1990-2015', col.names = c('',rep(c('ex','Transfers','MDs','Obesity','College','In-mig','Manuf'),2)), digits = 2, escape = FALSE) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 6) %>%
+   add_header_above(c(" " = 1, 'Large Central Metro' = 7,  "Large Metro Suburb" = 7)) %>%
+   group_rows("Male", 1, 10) %>%
+   group_rows("Female", 11, 20) %>%
+   column_spec(column = 1, width = "5em"))
+landscape(kable(table_2, format = 'latex', booktabs = TRUE, caption = 'Change in life expectancy and contextual covariates, 1990-2015', col.names = c('',rep(c('ex','Transfers','MDs','Obesity','College','In-mig','Manuf'),2)), digits = 2, escape = FALSE) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 6) %>%
+   add_header_above(c(" " = 1, "Small Metro" = 7, "Nonmetro" = 7)) %>%
+   group_rows("Male", 1, 10) %>%
+   group_rows("Female", 11, 20) %>%
+   column_spec(column = 1, width = "5em"))
+```
+
