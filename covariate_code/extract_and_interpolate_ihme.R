@@ -1,5 +1,7 @@
 library(ggplot2)
 library(data.table)
+library(grid)
+library(gridExtra)
 repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
 cov_dir <- paste0(repo, 'covariate_clean_data/')
 
@@ -113,6 +115,8 @@ all_melt[, variable.1 := NULL]
 all_melt[order(year), int_value := proj_cov(value, magr), by=c('fips','sex','variable')]
 all_melt[!is.na(int_value) & is.na(value), interpolated := 'int']
 all_melt[is.na(interpolated), interpolated := 'raw']
+all_melt[variable=='chr_obesity_prev', value := value * 100]
+all_melt[variable=='chr_obesity_prev', int_value := int_value * 100]
 
 ## Save
 final_int <- dcast(all_melt, fips + year + sex ~ variable, value.var = c('int_value'))
@@ -130,19 +134,29 @@ all_pops <- readRDS(paste0(cov_dir,'all_county_total_pop.RDS'))
 final_int <- merge(final_int, all_pops, by=c('year','fips'))
 
 all_covs <- c('as_diabetes_prev','pa_prev','obesity_prev','as_heavy_drinking_prev','current_smoker_prev',"chr_obesity_prev","chr_mammography","chr_diabetes_monitoring")
-pdf(paste0('C:/Users/ngraetz/Documents/Penn/papers/rwjf/covariates/prep_plots/all_interpolated_trends.pdf'), width = 12, height = 8)
+all_covs <- c('obesity_prev','chr_obesity_prev','as_diabetes_prev')
+png(paste0('C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/covariates/prep_plots/all_interpolated_trends_regions.png'))
+final_int[, metro_region := paste0(metroname, ' - ', regionname)]
+final_int[, metro_region := regionname]
 for(r in unique(final_int[, metro_region])) {
 sub <- final_int[metro_region==r, ]
-sub_agg <- sub[sex==1, lapply(.SD, weighted.mean, w=total_county_pop, na.rm=TRUE), .SDcols=c(paste0('int_value_',all_covs),paste0('value_',all_covs)), by=c('metro_region','year')]
+## Collapse over sex to fips or metro-region
+sub_agg <- sub[, lapply(.SD, weighted.mean, w=total_county_pop, na.rm=TRUE), .SDcols=c(paste0('int_value_',all_covs),paste0('value_',all_covs)), by=c('metro_region','year')]
+sub <- sub[, lapply(.SD, weighted.mean, w=total_county_pop, na.rm=TRUE), .SDcols=c(paste0('int_value_',all_covs),paste0('value_',all_covs)), by=c('fips','year')]
 get_cov_gg <- function(c) {
+if(grepl('obesity',c)) y_lims <- c(10,60)
+if(grepl('diabetes',c)) y_lims <- c(0,25)
+if(c=='value_obesity_prev') y_lab <- 'IHME obesity prevalence'
+if(c=='value_as_diabetes_prev') y_lab <- 'IHME diabetes prevalence'
+if(c=='value_chr_obesity_prev') y_lab <- 'CHR obesity prevalence (BRFSS)'
 gg <- ggplot() + 
-  geom_line(data=sub[sex==1,],
+  geom_line(data=sub,
             aes(x=year,
                 y=get(paste0('int_',c)),
                 group=fips),
             linetype = 'dashed',
             alpha = 0.1) +
-  geom_line(data=sub[sex==1,],
+  geom_line(data=sub,
             aes(x=year,
                 y=get(c),
                 group=fips),
@@ -160,6 +174,8 @@ gg <- ggplot() +
             linetype = 'dashed',
             size = 2,
             color = 'red') +
+  lims(y=y_lims) + 
+  labs(y=y_lab) + 
   theme_minimal()
 return(gg) 
 }
@@ -168,10 +184,19 @@ grid.arrange(
   top = textGrob(r,gp=gpar(fontsize=20,font=3)),
   grobs = all_cov_ggs,
   widths = c(1,1,1),
-  layout_matrix = rbind(c(1,2,3),
-                        c(4,5,6),
-                        c(7,8,NA))
+  layout_matrix = rbind(c(1,2,3))
 )
 }
 dev.off()
+
+
+ggplot() + 
+  geom_point(data=final_int[year==2012,],
+                      aes(x=int_value_obesity_prev,
+                          y=int_value_chr_obesity_prev)) + 
+  geom_abline(slope=1,intercept=0) + 
+  theme_minimal()
+
+
+
 

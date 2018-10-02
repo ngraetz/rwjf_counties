@@ -18,7 +18,7 @@ source(paste0(repo, 'functions.R'))
 source(paste0(repo, 'functions_shapley.R'))
 input_dir <- paste0(repo, 'nmx_clean_data/')
 cov_dir <- paste0(repo, 'covariate_clean_data/')
-out_dir <- 'C:/Users/ngraetz/Documents/Penn/papers/rwjf/paa_materials/'
+out_dir <- 'C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/paa_materials/'
 
 ## Set options for this run (data domain and covariates).
 ## Current datasets: 25-64 ASDR for national NHW male, national NHW female, South NHW male, South NWH female, South NHB male, South NHB female.
@@ -42,7 +42,7 @@ sex_name <- ifelse(sex_option==1,'Male','Female')
 output_name <- paste0(capitalize(domain), ' ', toupper(race), ' ', capitalize(sex_name))
 
 ## Load master shapefile.
-counties <- readOGR("C:/Users/ngraetz/Downloads/cb_2016_us_county_20m", 'cb_2016_us_county_20m')
+counties <- readOGR(paste0(repo, "/cb_2016_us_county_20m"), 'cb_2016_us_county_20m')
 counties@data <- transform(counties@data, fips = paste0(STATEFP, COUNTYFP)) # create unique county 5-digit fips
 counties <- counties[counties@data$fips != "02016", ] # Drop Aleutians West, AK - screws up plots 
 counties <- counties[counties$STATEFP != '02' &
@@ -80,6 +80,7 @@ mort <- merge(mort, pop, by=c('fips','year','sex'))
 
 mort[is.na(total_pop) | total_pop == 0, total_pop := 1]
 mort <- mort[year %in% year_range, ]
+mort <- mort[sex == sex_option, ]
 
 ## Drop Alaska, Hawaii, Puerto Rico
 mort <- mort[!grep(paste(c('^02','^15','^72'),collapse="|"), fips, value=TRUE), ]
@@ -156,14 +157,19 @@ for(fip in unique(mort[metro_region %in% "Nonmetro_West North Central", fips])) 
   model_fips <- c(model_fips, fip)
   inla_model = inla(as.formula('deaths ~ as.factor(agegrp)'),
                     family = "binomial",
-                    data = mort[metro_region %in% "Nonmetro_West North Central" & fips %in% model_fips, ],
-                    Ntrials = mort[metro_region %in% "Nonmetro_West North Central" & fips %in% model_fips, total_pop],
+                    data = mort,
+                    Ntrials = mort[, total_pop],
                     verbose = FALSE,
                     control.compute=list(config = TRUE, dic = TRUE),
                     control.inla=list(int.strategy='eb', h = 1e-3, tolerance = 1e-6),
                     control.fixed=list(prec.intercept = 0,
-                                       prec = 1))
+                                       prec = 1), num.threads = 2)
 }
+
+m <- glm(cbind(round(deaths), round(total_pop-deaths)) ~ as.factor(agegrp) + year, data = mort, family = binomial)
+fit_glm <- glm(cbind(round(out_migration), round(total_pop-out_migration)) ~ 
+                 lag5_r_size_15_19 + lag5_out_rate + as.factor(name) + year,
+               data=model_data[name %in% cor_countries_mort & !is.na(out_migration), ], family=binomial)
 
 ## Fit INLA model, save coefficients for table.
 ## Make tables comparing coefficients
