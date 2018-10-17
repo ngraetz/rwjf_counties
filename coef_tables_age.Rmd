@@ -1,0 +1,82 @@
+---
+title: "Tables testing"
+author: "Nick Graetz"
+output: pdf_document
+---
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# Load knitr package and settings
+library(knitr)
+library(data.table)
+library(ggplot2)
+library(formatR)
+library(kableExtra)
+options(scipen=999)
+#opts_chunk$set(fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE)
+#opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+knit_hooks$set(small.mar = function(before, options, envir) {
+    if (before)    par(mar=c(1,1,1,1)+.1)  # smaller margin on top and right
+})
+opts_chunk$set(small.mar=TRUE)
+```
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+## Order names
+repo <- 'C:/Users/Nick/Documents/repos/rwjf_counties/'
+source(paste0(repo, 'functions.R'))
+source(paste0(repo, 'functions_shapley.R'))
+cov_names <- get_clean_cov_names()
+setnames(cov_names,'fe','name')
+
+format_decimals <- function(dt, v) {
+  dt[nchar(get(v))==3, (v) := paste0(get(v),'0')]
+  dt[nchar(get(v))==1, (v) := paste0(get(v),'.00')]
+}
+  
+## Format table data
+pull_table_data <- function(file, string_names = cov_names, cov_domain) {
+coefs <- readRDS(paste0(repo,'coefs/',file, '_',cov_domain,'.RDS'))
+coefs[!(name %in% c('DIC','RMSE')), coef := round(exp(coef), 2)]
+coefs[name == "DIC", coef := round(coef)]
+coefs[name == "RMSE", coef := round(coef, 5)]
+coefs[, coef := as.character(coef)]
+format_decimals(coefs, 'coef')
+coefs[!grepl('-', coef), coef := paste0(' ',coef)]
+coefs[, model := file]
+## Make uncertainty
+coefs[, upper := as.character(round(upper,2))]
+format_decimals(coefs, 'upper')
+coefs[, lower := as.character(round(lower,2))]
+format_decimals(coefs, 'lower')
+coefs[, sig := ifelse(lower > 0 | upper < 0, 1, 0)]
+coefs[sig==1, coef := paste0(coef,'*')]
+coefs[sig==0, coef := paste0(coef,'!')]
+## Add reference groups for dummies
+# ref_coefs <- data.table(model = rep(paste0(c('Model 1', 'Model 2', 'Model 3','Model 4'), group), 3),
+#                         name = c(rep('as.factor(metroname)Lg central metro', 4), rep('as.factor(regionname)Pacific', 4), rep('as.factor(year)1990', 4)),
+#                         coef = rep('--', 12))
+# coefs <- rbind(coefs, ref_coefs, fill = TRUE)
+coefs <- coefs[!grep('as.factor',name), ]
+coefs <- merge(coefs, string_names, by='name')
+return(coefs)
+}
+for(c in c('ses','med','beh','pop','all')) {
+coefs <- rbindlist(lapply(c('age_0_20_1','age_25_40_1','age_45_60_1','age_65_85_1'), pull_table_data, cov_domain=c))
+coefs[, coef := gsub('[!]',' ',coef)]
+coefs[, coef := paste0(coef,' ')]
+coefs <- dcast(coefs, cov_name + cov_sort ~ model, value.var='coef')
+## Fill in any NAs with --
+for(n in names(coefs)) coefs[is.na(get(n)), (n) := '--']
+coefs <- coefs[order(cov_sort)]
+coefs[, cov_sort := NULL]
+setnames(coefs, c('age_0_20_1','age_25_40_1','age_45_60_1','age_65_85_1'), c('Ages 0-24','Ages 25-44','Ages 45-64','Ages 65+'))
+setcolorder(coefs, c('cov_name','Ages 0-24','Ages 25-44','Ages 45-64','Ages 65+'))
+## Make formatted table
+t <- kable(coefs, format = 'latex', booktabs = TRUE, caption = 'County-level ASDR, 2000-2015', col.names = c('',names(coefs)[names(coefs)!='cov_name']), digits = 2, escape = FALSE) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 8) %>%
+   add_footnote(c("* indicate parameters with 95% of the posterior density above or below 0."), notation='alphabet') %>%
+   column_spec(column = 1, width = "15em")
+print(t)
+}
+```
+
