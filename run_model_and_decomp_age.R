@@ -33,10 +33,16 @@ out_dir <- paste0(repo, '/results')
 race <- 'nhw'
 sex_option <- 1
 domain <- 'national'
-covs <- c('college','poverty_all','log_hh_income','percent_transfers','percent_unemployment') ## To add: eviction_rate, perc_manufacturing
-#covs <- c('log_mds_pc','chr_mammography','chr_diabetes_monitoring') ## To add: insurance (SAHIE)
-#covs <- c('as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev')
-#covs <- c('fb','perc_25_64') ## To add: perc_black, perc_hispanic, perc_native, net_migration
+cov_domain <- 'all'
+#for(cov_domain in c('med','beh','pop')) {
+if(cov_domain=='ses') covs <- c('college','poverty_all','log_hh_income','percent_transfers','percent_unemployment') ## To add: eviction_rate, perc_manufacturing
+if(cov_domain=='med') covs <- c('log_mds_pc','chr_mammography','chr_diabetes_monitoring') ## To add: insurance (SAHIE)
+if(cov_domain=='beh') covs <- c('as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev')
+if(cov_domain=='pop') covs <- c('fb','perc_25_64') ## To add: perc_black, perc_hispanic, perc_native, net_migration
+if(cov_domain=='all') covs <- c('college','poverty_all','log_hh_income','percent_transfers','percent_unemployment',
+                                'log_mds_pc','chr_mammography','chr_diabetes_monitoring',
+                                'as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev',
+                                'fb','perc_25_64') ## To add: perc_black, perc_hispanic, perc_native, net_migration
 year_range <- c(2000,2010,2015)
 plot_trends <- FALSE
 
@@ -70,7 +76,7 @@ pop_nhb <- readRDS(paste0(input_dir, 'nhb', '_total_pop.RDS'))
 pop <- rbind(pop_nhw,pop_nhb)
 pop <- readRDS(paste0(input_dir, race, '_total_pop.RDS'))
 all_covs <- readRDS(paste0(cov_dir, 'combined_covs.RDS'))
-all_covs[, log_mds_pc := log(mds_pc)]
+all_covs[, log_mds_pc := log(mds_pc+0.01)]
 
 ## Old method by race
 # mort <- merge(mort, pop, by=c('fips','year','sex','race'))
@@ -125,17 +131,17 @@ if(plot_trends==TRUE) {
   cov_names <- get_clean_cov_names()
   pdf(paste0('C:/Users/ngraetz/Documents/Penn/papers/rwjf/covariates/trend_plots/', domain, '_', race, '_', sex_name, '_trends.pdf'), width = 12, height = 8)
   for(c in covs) {
-  gg <- ggplot() + 
-    geom_line(data=trends,
-              aes(x=year,
-                  y=get(c),
-                  color=metroname),
-              size=2) +
-    theme_minimal() + 
-    scale_color_manual(values = brewer.pal(length(unique(collapsed[, cov_name])),'Dark2'), name='Metro') + 
-    labs(x='Year',y=cov_names[fe==c, cov_name], title=cov_names[fe==c, cov_name]) + 
-    facet_wrap(~regionname)
-  print(gg)
+    gg <- ggplot() + 
+      geom_line(data=trends,
+                aes(x=year,
+                    y=get(c),
+                    color=metroname),
+                size=2) +
+      theme_minimal() + 
+      scale_color_manual(values = brewer.pal(length(unique(collapsed[, cov_name])),'Dark2'), name='Metro') + 
+      labs(x='Year',y=cov_names[fe==c, cov_name], title=cov_names[fe==c, cov_name]) + 
+      facet_wrap(~regionname)
+    print(gg)
   }
   dev.off()
 }
@@ -165,7 +171,7 @@ message('Fitting INLA models...')
 mort[, regionname := factor(regionname, levels = c('Pacific', unique(mort[!(regionname %in% 'Pacific'), regionname])))]
 mort[, metroname := factor(metroname, levels = c('Lg central metro', unique(mort[!(metroname %in% 'Lg central metro'), metroname])))]
 ## Create broad age groups for interacting. 
-mort[agegrp <= 20, 0:20, broad_age := '0_24']
+mort[agegrp <= 20, broad_age := '0_24']
 mort[agegrp %in% 25:40, broad_age := '25_44']
 mort[agegrp %in% 45:60, broad_age := '45_64']
 mort[agegrp >= 65, broad_age := '65_100']
@@ -176,78 +182,78 @@ inla_formulas <- c(paste0('deaths ~ as.factor(agegrp) + as.factor(metroname)'),
                    paste0('deaths ~ ', paste(covs, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metroname) + as.factor(regionname) + year + f(ID,model="besag",graph="FOQ_INLA")'),
                    paste0('deaths ~ ', paste(covs, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metro_region) + year + f(ID,model="besag",graph="FOQ_INLA")'),
                    paste0('deaths ~ ', paste(paste0(covs,'*as.factor(broad_age)'), collapse = ' + '), ' + as.factor(agegrp) + as.factor(metro_region) + year + f(ID,model="besag",graph="FOQ_INLA")'))
-for(f in 1:4) {
-  inla_model = inla(as.formula(inla_formulas[f]),
-                    family = "binomial",
-                    data = mort,
-                    Ntrials = mort[, total_pop],
-                    verbose = FALSE,
-                    control.compute=list(config = TRUE, dic = TRUE),
-                    control.inla=list(int.strategy='eb', h = 1e-3, tolerance = 1e-6),
-                    control.fixed=list(prec.intercept = 0,
-                                       prec = 1),
-                    num.threads = 4)
-  assign(paste0('inla_model_', f), inla_model)
-  mort[, (paste0('inla_pred_', f)) := inla_model$summary.fitted.values$mean]
-  mort[, (paste0('inla_residual_', f)) := nmx - get(paste0('inla_pred_', f))]
-}
-all_tables <- lapply(1:4, make_coef_table)
-all_coefs <- rbindlist(all_tables, fill=TRUE)
-all_dic_morans <- data.table(model = rep(paste0('Model ', 1:4),3),
-                             name = c(rep("Global Moran's I",4), rep("DIC",4), rep("RMSE",4)),
-                             coef = rep(.00001,12))
-for(m in 1:4) {
-  lisa <- plot_lisa(lisa_var = paste0('inla_residual_', m),
-                    lisa_dt = mort[year==2010,],
-                    lisa_sp = counties,
-                    lisa_id = 'fips',
-                    lisa_var_name = 'Residuals',
-                    sig = 0.05)
-  all_dic_morans[model == paste0('Model ', m) & name == "Global Moran's I", coef := lisa[[3]]]
-  all_dic_morans[model == paste0('Model ', m) & name == "DIC", coef := ifelse(is.nan(get(paste0('inla_model_',m))$dic$dic) | is.infinite(get(paste0('inla_model_',m))$dic$dic), 
-                                                                              get(paste0('inla_model_',m))$dic$deviance.mean,
-                                                                              get(paste0('inla_model_',m))$dic$dic)]
-  all_dic_morans[model == paste0('Model ', m) & name == 'RMSE', coef := mort[, sqrt(weighted.mean(get(paste0('inla_residual_', m))^2, w = total_pop))]]
-}
-all_coefs <- rbind(all_coefs, all_dic_morans, fill = TRUE)
-saveRDS(all_coefs, file = paste0(out_dir, '/sex_', sex_option, '_race_', race_option, '_coef_table_just_inla.RDS'))
+# for(f in 1:4) {
+#   inla_model = inla(as.formula(inla_formulas[f]),
+#                     family = "binomial",
+#                     data = mort,
+#                     Ntrials = mort[, total_pop],
+#                     verbose = FALSE,
+#                     control.compute=list(config = TRUE, dic = TRUE),
+#                     control.inla=list(int.strategy='eb', h = 1e-3, tolerance = 1e-6),
+#                     control.fixed=list(prec.intercept = 0,
+#                                        prec = 1),
+#                     num.threads = 4)
+#   assign(paste0('inla_model_', f), inla_model)
+#   mort[, (paste0('inla_pred_', f)) := inla_model$summary.fitted.values$mean]
+#   mort[, (paste0('inla_residual_', f)) := nmx - get(paste0('inla_pred_', f))]
+# }
+# all_tables <- lapply(1:4, make_coef_table)
+# all_coefs <- rbindlist(all_tables, fill=TRUE)
+# all_dic_morans <- data.table(model = rep(paste0('Model ', 1:4),3),
+#                              name = c(rep("Global Moran's I",4), rep("DIC",4), rep("RMSE",4)),
+#                              coef = rep(.00001,12))
+# for(m in 1:4) {
+#   lisa <- plot_lisa(lisa_var = paste0('inla_residual_', m),
+#                     lisa_dt = mort[year==2010,],
+#                     lisa_sp = counties,
+#                     lisa_id = 'fips',
+#                     lisa_var_name = 'Residuals',
+#                     sig = 0.05)
+#   all_dic_morans[model == paste0('Model ', m) & name == "Global Moran's I", coef := lisa[[3]]]
+#   all_dic_morans[model == paste0('Model ', m) & name == "DIC", coef := ifelse(is.nan(get(paste0('inla_model_',m))$dic$dic) | is.infinite(get(paste0('inla_model_',m))$dic$dic), 
+#                                                                               get(paste0('inla_model_',m))$dic$deviance.mean,
+#                                                                               get(paste0('inla_model_',m))$dic$dic)]
+#   all_dic_morans[model == paste0('Model ', m) & name == 'RMSE', coef := mort[, sqrt(weighted.mean(get(paste0('inla_residual_', m))^2, w = total_pop))]]
+# }
+# all_coefs <- rbind(all_coefs, all_dic_morans, fill = TRUE)
+# saveRDS(all_coefs, file = paste0(out_dir, '/sex_', sex_option, '_race_', race_option, '_coef_table_just_inla.RDS'))
+# 
+# lisa <- plot_lisa(lisa_var = 'nmx',
+#                   lisa_dt = mort[year==2015,],
+#                   lisa_sp = counties,
+#                   lisa_id = 'fips',
+#                   lisa_var_name = 'nMx',
+#                   sig = 0.05)
+# global_morans <- lisa[[3]]
+# panel_a_title <- 'A)'
+# panel_b_title <- paste0('B)\nGlobal Morans I: ', global_morans)
+# title_a <- textGrob(
+#   label = "A)",
+#   x = unit(0, "lines"), 
+#   y = unit(0, "lines"),
+#   hjust = 0, vjust = 0,
+#   gp = gpar(fontsize = 16))
+# panel_a <- arrangeGrob(lisa[[2]] + theme(legend.position="none"), top = title_a)
+# panel_a$vp <- vplayout(1:6, 1:12)
+# title_b <- textGrob(
+#   label = "B)",
+#   x = unit(0, "lines"), 
+#   y = unit(0, "lines"),
+#   hjust = 0, vjust = 0,
+#   gp = gpar(fontsize = 16))
+# panel_b <- arrangeGrob(lisa[[1]] + theme(legend.position="none"), top = title_b)
+# panel_b$vp <- vplayout(7:14, 1:12)
+# 
+# png(paste0(out_dir, '/lisa_data_',m,'_sex', sex_option, '_race_', race_option, '.png'), width = 1200, height = 1400, res = 120)
+# grid.newpage()
+# pushViewport(viewport(layout = grid.layout(14, 12)))
+# vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y) 
+# #print(lisa[[2]] + ggtitle(panel_a_title) + theme(legend.position="none"), vp = vplayout(1:6, 1:12))
+# grid.draw(panel_a)
+# #print(lisa[[1]] + ggtitle(panel_b_title) + theme(legend.position="none"), vp = vplayout(7:14, 1:12))
+# grid.draw(panel_b)
+# dev.off()
 
-lisa <- plot_lisa(lisa_var = 'nmx',
-                  lisa_dt = mort[year==2015,],
-                  lisa_sp = counties,
-                  lisa_id = 'fips',
-                  lisa_var_name = 'nMx',
-                  sig = 0.05)
-  global_morans <- lisa[[3]]
-  panel_a_title <- 'A)'
-  panel_b_title <- paste0('B)\nGlobal Morans I: ', global_morans)
-  title_a <- textGrob(
-    label = "A)",
-    x = unit(0, "lines"), 
-    y = unit(0, "lines"),
-    hjust = 0, vjust = 0,
-    gp = gpar(fontsize = 16))
-  panel_a <- arrangeGrob(lisa[[2]] + theme(legend.position="none"), top = title_a)
-  panel_a$vp <- vplayout(1:6, 1:12)
-  title_b <- textGrob(
-    label = "B)",
-    x = unit(0, "lines"), 
-    y = unit(0, "lines"),
-    hjust = 0, vjust = 0,
-    gp = gpar(fontsize = 16))
-  panel_b <- arrangeGrob(lisa[[1]] + theme(legend.position="none"), top = title_b)
-  panel_b$vp <- vplayout(7:14, 1:12)
-  
-  png(paste0(out_dir, '/lisa_data_',m,'_sex', sex_option, '_race_', race_option, '.png'), width = 1200, height = 1400, res = 120)
-  grid.newpage()
-  pushViewport(viewport(layout = grid.layout(14, 12)))
-  vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y) 
-  #print(lisa[[2]] + ggtitle(panel_a_title) + theme(legend.position="none"), vp = vplayout(1:6, 1:12))
-  grid.draw(panel_a)
-  #print(lisa[[1]] + ggtitle(panel_b_title) + theme(legend.position="none"), vp = vplayout(7:14, 1:12))
-  grid.draw(panel_b)
-  dev.off()
-  
 ## Do everything else with the full spatial model and metro*region interaction.
 ## With all-age covariates             DIC = 1025807.50
 ## With broad-age-specific covariates  DIC =  982275.99
@@ -302,13 +308,13 @@ full_mort <- copy(mort)
 
 ## Prep and reshape input data from model (all fixed effects of interest + geographic random effects + 
 ## time + spatial random effects + intercept + residual, wide by year)
-d <- copy(full_mort)
-d <- merge(d, inla_model$summary.random$ID[c('ID','mean')], by='ID')
-setnames(d, 'mean', 'spatial_effect')
-d <- d[year %in% c(start_year,end_year), ]
-d <- dcast(d, fips + agegrp ~ year, value.var = c(covs, 'inla_residual', 'inla_pred', 'total_pop', 'metro_region', 'nmx', 'spatial_effect'))
-d[, (paste0('year_', start_year)) := start_year]
-d[, (paste0('year_', end_year)) := end_year]
+# d <- copy(full_mort)
+# d <- merge(d, inla_model$summary.random$ID[c('ID','mean')], by='ID')
+# setnames(d, 'mean', 'spatial_effect')
+# d <- d[year %in% c(start_year,end_year), ]
+# d <- dcast(d, fips + agegrp ~ year, value.var = c(covs, 'inla_residual', 'inla_pred', 'total_pop', 'metro_region', 'nmx', 'spatial_effect'))
+# d[, (paste0('year_', start_year)) := start_year]
+# d[, (paste0('year_', end_year)) := end_year]
 
 ## Calculate contribution attributable to each time-varying component. By definition this adds up to total observed change in the outcome
 ## because of inclusion of the residual.
@@ -323,8 +329,10 @@ d[, (paste0('year_', end_year)) := end_year]
 age_groups <- list(c(0,20), c(25,40), c(45,60), c(65,85))
 all_contributions <- rbindlist(lapply(age_groups, shapley_ages,
                                       data=full_mort, inla_f=inla_formulas[5],
-                                      coef_file=paste0('age_',  ages[1], '_',  ages[2], '_', sex_option,'_',cov_domain),
-                                      shapley=FALSE))
+                                      coef_file=paste0(sex_option,'_',cov_domain),
+                                      shapley=TRUE,
+                                      shap_covs=covs))
+#}
 
 ## Scatter total predicted change from decomp (sum of contributions) with observed change.
 plot_metro_regions <- c('Lg central metro_Middle Atlantic',
@@ -374,8 +382,8 @@ all_pops <- d[agegrp >= age_start & agegrp <= age_end, list(total_pop_2015=sum(t
 #collapsed <- merge(all_contributions, unique(all_pops[, c('fips','metro_region_2015','total_pop_2015','total_pop_2000')]), by='fips')
 collapsed <- merge(collapsed, all_pops, by='fips')
 collapsed <- collapsed[, list(contribution_mort=wtd.mean(contribution_mort, total_pop_2015, na.rm=TRUE),
-                                              total_pop_2015=sum(total_pop_2015, na.rm=TRUE)),
-                                       by=c('metro_region_2015','fe')]
+                              total_pop_2015=sum(total_pop_2015, na.rm=TRUE)),
+                       by=c('metro_region_2015','fe')]
 collapsed <- merge(collapsed, collapsed[, list(total_change=sum(contribution_mort, na.rm=TRUE)), by='metro_region_2015'], by='metro_region_2015')
 collapsed[, metro_region := factor(metro_region_2015, levels=unique(collapsed$metro_region_2015[order(collapsed[, total_change])]))]
 
@@ -421,20 +429,20 @@ all_contributions[, contribution_mort_per_100000 := contribution_mort * 100000]
 top_code <- quantile(all_contributions[, contribution_mort_per_100000], probs=0.90, na.rm=T)
 bottom_code <- quantile(all_contributions[, contribution_mort_per_100000], probs=0.10, na.rm=T)
 for(c in c(covs)) {
-m <- make_county_map(map_dt = all_contributions[fe==c, ],
-                     map_sp = counties,
-                     map_var = 'contribution_mort_per_100000',
-                     legend_title = 'Contribution',
-                     high_is_good = FALSE,
-                     map_title = paste0('Contribution of ', cov_names[fe==c, cov_name], ' to change in ASDR, ', start_year,'-',end_year),
-                     map_limits = c(-20,50),
-                     diverge = TRUE)
-m <- m + scale_fill_gradientn(guide = guide_legend(title = 'Contribution'),
-                              limits = c(-20,50),
-                              breaks = c(-20,-10,0,10,20,30,40,50),
-                              colours=rev(brewer.pal(10,'Spectral')),
-                              values=c(-20,0,50), na.value = "#000000", rescaler = function(x, ...) x, oob = identity)
-print(m)
+  m <- make_county_map(map_dt = all_contributions[fe==c, ],
+                       map_sp = counties,
+                       map_var = 'contribution_mort_per_100000',
+                       legend_title = 'Contribution',
+                       high_is_good = FALSE,
+                       map_title = paste0('Contribution of ', cov_names[fe==c, cov_name], ' to change in ASDR, ', start_year,'-',end_year),
+                       map_limits = c(-20,50),
+                       diverge = TRUE)
+  m <- m + scale_fill_gradientn(guide = guide_legend(title = 'Contribution'),
+                                limits = c(-20,50),
+                                breaks = c(-20,-10,0,10,20,30,40,50),
+                                colours=rev(brewer.pal(10,'Spectral')),
+                                values=c(-20,0,50), na.value = "#000000", rescaler = function(x, ...) x, oob = identity)
+  print(m)
 }
 c <- 'residual'
 top_code <- quantile(all_contributions[, contribution_mort], probs=0.99, na.rm=T)

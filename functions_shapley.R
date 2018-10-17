@@ -17,7 +17,10 @@ calculate_contribution <- function(fe, fes, start_year, end_year, dt, coefs) {
   other_fes <- c(fes, 'year','residual')
   other_fes <- other_fes[other_fes!=fe]
   inv_logit <- function(x) {exp(x)/(1+exp(x))}
-  calculate_permutation <- function(p, perm_dt) {
+  calculate_permutation <- function(p, perm_dt, max_perm) {
+    
+    ## Message progress
+    if(nchar(as.character(p/100))==1) message(paste0(as.character(p/100),' / ', dim(fe_permutations)[1]))
     
     ## Select permutation.
     this_dt <- copy(perm_dt)
@@ -83,7 +86,7 @@ calculate_contribution <- function(fe, fes, start_year, end_year, dt, coefs) {
   }
   
   message('Calculating all permutations...')
-  all_diffs <- as.data.table(rbind.fill(lapply(1:dim(fe_permutations)[1], calculate_permutation, perm_dt=dt)))
+  all_diffs <- as.data.table(rbind.fill(lapply(1:dim(fe_permutations)[1], calculate_permutation, perm_dt=dt, max_perm=dim(fe_permutations)[1])))
   ## As this is a Shapley decomposition, here is where we "average over" potential path dependencies (i.e. all the different permutations).
   ## A more complex generalized decomposition could be used, such as g-computation (actually estimate all the path dependencies, decompose
   ## direct/indirect change attributable via bootstrap and stochastic simulation through periods.
@@ -125,7 +128,7 @@ inv_logit <- function(x) {
 }
 
 
-shapley_ages <- function(ages,data,inla_f,repo,shapley) {
+shapley_ages <- function(ages,data,inla_f,coef_file,shapley,shap_covs) {
   
   mort <- copy(data[agegrp %in% ages[1]:ages[2], ])
   message(unique(mort[, agegrp]))
@@ -142,8 +145,8 @@ shapley_ages <- function(ages,data,inla_f,repo,shapley) {
   
   ## Save coefs table
   coefs <- make_beta_table(inla_model, paste0('age_',  ages[1], '_',  ages[2], '_', sex_option))
-  saveRDS(coefs, file = paste0(repo,'/coefs/age_',  ages[1], '_',  ages[2], '_', sex_option,'.RDS'))
-  message(paste0('Saving coefs: ',repo,'/coefs/age_',  ages[1], '_',  ages[2], '_', sex_option,'.RDS'))
+  saveRDS(coefs, file = paste0(repo,'/coefs/age_',  ages[1], '_',  ages[2], '_', coef_file,'.RDS'))
+  message(paste0('Saving coefs: ',repo,'/coefs/age_',  ages[1], '_',  ages[2], '_',coef_file,'.RDS'))
   
   if(shapley==FALSE) {
     return(NULL)
@@ -160,7 +163,7 @@ shapley_ages <- function(ages,data,inla_f,repo,shapley) {
   ## Create permutations (2010-1990, 6 changes, total permutations = 2^6 = 64, 32 pairs)
   ## i.e. one pair for poverty is delta_m|PV=2013,IS=1990,CE=1990,FB=1990,time=1990,residual=1990 - 
   ##                              delta_m|PV=1990,IS=1990,CE=1990,FB=1990,time=1990,residual=1990
-  permutations <- make_permutations(fes = covs,
+  permutations <- make_permutations(fes = shap_covs,
                                     start_year = start_year,
                                     end_year = end_year)
   
@@ -170,15 +173,15 @@ shapley_ages <- function(ages,data,inla_f,repo,shapley) {
   shap_d <- merge(mort, inla_model$summary.random$ID[c('ID','mean')], by='ID')
   setnames(shap_d, 'mean', 'spatial_effect')
   shap_d <- shap_d[year %in% c(start_year,end_year), ]
-  shap_d <- dcast(shap_d, fips + agegrp ~ year, value.var = c(covs, 'inla_residual', 'inla_pred', 'total_pop', 'metro_region', 'nmx', 'spatial_effect'))
+  shap_d <- dcast(shap_d, fips + agegrp ~ year, value.var = c(shap_covs, 'inla_residual', 'inla_pred', 'total_pop', 'metro_region', 'nmx', 'spatial_effect'))
   shap_d[, (paste0('year_', start_year)) := start_year]
   shap_d[, (paste0('year_', end_year)) := end_year]
   
   ## Calculate contribution attributable to each time-varying component. By definition this adds up to total observed change in the outcome
   ## because of inclusion of the residual.
   ## Change decompositions occur at the county-age-level.
-  all_contributions <- rbindlist(lapply(c(covs, 'year','residual'), calculate_contribution,
-                                        fes=covs,
+  all_contributions <- rbindlist(lapply(c(shap_covs, 'year','residual'), calculate_contribution,
+                                        fes=shap_covs,
                                         start_year=start_year,
                                         end_year=end_year,
                                         dt=shap_d,
