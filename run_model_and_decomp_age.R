@@ -315,6 +315,10 @@ full_mort <- copy(mort)
 # d <- dcast(d, fips + agegrp ~ year, value.var = c(covs, 'inla_residual', 'inla_pred', 'total_pop', 'metro_region', 'nmx', 'spatial_effect'))
 # d[, (paste0('year_', start_year)) := start_year]
 # d[, (paste0('year_', end_year)) := end_year]
+d <- full_mort[year %in% c(start_year,end_year), ]
+d <- dcast(d, fips + agegrp ~ year, value.var = c(covs, 'total_pop', 'metro_region', 'nmx'))
+d[, (paste0('year_', start_year)) := start_year]
+d[, (paste0('year_', end_year)) := end_year]
 
 ## Calculate contribution attributable to each time-varying component. By definition this adds up to total observed change in the outcome
 ## because of inclusion of the residual.
@@ -330,7 +334,7 @@ age_groups <- list(c(0,20), c(25,40), c(45,60), c(65,85))
 all_contributions <- rbindlist(lapply(age_groups, shapley_ages,
                                       data=full_mort, inla_f=inla_formulas[5],
                                       coef_file=paste0(sex_option,'_',cov_domain),
-                                      shapley=TRUE,
+                                      shapley=FALSE,
                                       shap_covs=covs))
 #}
 
@@ -348,13 +352,13 @@ all_contributions_age <- merge(full_mort[year==2015, c('agegrp','fips','total_po
 all_contributions_age <- all_contributions_age[, list(contribution_mort=weighted.mean(contribution_mort, total_pop, na.rm=T)), by=c('fe','agegrp','metro_region')]
 all_contributions_age <- all_contributions_age[metro_region %in% plot_metro_regions, ]
 ggplot() +
-  geom_bar(data=all_contributions_age,
+  geom_bar(data=all_contributions_age[agegrp<=60],
            aes(x=as.factor(agegrp),
                y=contribution_mort*100000,
                fill=fe),
            color='black',
            stat='identity') + 
-  geom_point(data=decomp_change,
+  geom_point(data=decomp_change[agegrp<=60],
              aes(x=as.factor(agegrp),
                  y=decomp_change*100000),
              size=3) + 
