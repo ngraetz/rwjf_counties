@@ -1,5 +1,5 @@
 ## Set location of repo.
-repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
+repo <- '/share/code/geospatial/ngraetz/rwjf_counties/'
 
 ## Load all libraries and functions.
 library(INLA)
@@ -18,7 +18,8 @@ source(paste0(repo, 'functions.R'))
 source(paste0(repo, 'functions_shapley.R'))
 input_dir <- paste0(repo, 'nmx_clean_data/')
 cov_dir <- paste0(repo, 'covariate_clean_data/')
-out_dir <- 'C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/paa_materials/'
+#out_dir <- 'C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/paa_materials/'
+out_dir <- paste0(repo, '/results')
 
 ## Set options for this run (data domain and covariates).
 ## Current datasets: 25-64 ASDR for national NHW male, national NHW female, South NHW male, South NWH female, South NHB male, South NHB female.
@@ -32,7 +33,10 @@ out_dir <- 'C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/paa_materials/'
 race <- 'nhw'
 sex_option <- 1
 domain <- 'national'
-covs <- c('college','poverty_all','percent_transfers','fb','percent_unemployment','perc_25_64')
+covs <- c('college','poverty_all','log_hh_income','percent_transfers','percent_unemployment') ## To add: eviction_rate, perc_manufacturing
+#covs <- c('log_mds_pc','chr_mammography','chr_diabetes_monitoring') ## To add: insurance (SAHIE)
+#covs <- c('as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev')
+#covs <- c('fb','perc_25_64') ## To add: perc_black, perc_hispanic, perc_native, net_migration
 year_range <- c(2000,2010,2015)
 plot_trends <- FALSE
 
@@ -66,6 +70,7 @@ pop_nhb <- readRDS(paste0(input_dir, 'nhb', '_total_pop.RDS'))
 pop <- rbind(pop_nhw,pop_nhb)
 pop <- readRDS(paste0(input_dir, race, '_total_pop.RDS'))
 all_covs <- readRDS(paste0(cov_dir, 'combined_covs.RDS'))
+all_covs[, log_mds_pc := log(mds_pc)]
 
 ## Old method by race
 # mort <- merge(mort, pop, by=c('fips','year','sex','race'))
@@ -151,26 +156,6 @@ for(c in covs) {
 }
 mort <- mort[is.na(drop),]
 
-model_fips <- 99999
-for(fip in unique(mort[metro_region %in% "Nonmetro_West North Central", fips])) {
-  message(fip)
-  model_fips <- c(model_fips, fip)
-  inla_model = inla(as.formula('deaths ~ as.factor(agegrp)'),
-                    family = "binomial",
-                    data = mort,
-                    Ntrials = mort[, total_pop],
-                    verbose = FALSE,
-                    control.compute=list(config = TRUE, dic = TRUE),
-                    control.inla=list(int.strategy='eb', h = 1e-3, tolerance = 1e-6),
-                    control.fixed=list(prec.intercept = 0,
-                                       prec = 1), num.threads = 2)
-}
-
-m <- glm(cbind(round(deaths), round(total_pop-deaths)) ~ as.factor(agegrp) + year, data = mort, family = binomial)
-fit_glm <- glm(cbind(round(out_migration), round(total_pop-out_migration)) ~ 
-                 lag5_r_size_15_19 + lag5_out_rate + as.factor(name) + year,
-               data=model_data[name %in% cor_countries_mort & !is.na(out_migration), ], family=binomial)
-
 ## Fit INLA model, save coefficients for table.
 ## Make tables comparing coefficients
 ## 1. Metro * Regions, AR1 on year
@@ -179,21 +164,29 @@ fit_glm <- glm(cbind(round(out_migration), round(total_pop-out_migration)) ~
 message('Fitting INLA models...')
 mort[, regionname := factor(regionname, levels = c('Pacific', unique(mort[!(regionname %in% 'Pacific'), regionname])))]
 mort[, metroname := factor(metroname, levels = c('Lg central metro', unique(mort[!(metroname %in% 'Lg central metro'), metroname])))]
+## Create broad age groups for interacting. 
+mort[agegrp <= 20, 0:20, broad_age := '0_24']
+mort[agegrp %in% 25:40, broad_age := '25_44']
+mort[agegrp %in% 45:60, broad_age := '45_64']
+mort[agegrp >= 65, broad_age := '65_100']
+broad_ages <- c('0_24','25_44','45_64','65_100')
 inla_formulas <- c(paste0('deaths ~ as.factor(agegrp) + as.factor(metroname)'),
                    paste0('deaths ~ as.factor(agegrp) + as.factor(metroname) + as.factor(regionname) + year'),
                    paste0('deaths ~ ', paste(covs, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metroname) + as.factor(regionname) + year'),
                    paste0('deaths ~ ', paste(covs, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metroname) + as.factor(regionname) + year + f(ID,model="besag",graph="FOQ_INLA")'),
-                   paste0('deaths ~ ', paste(covs, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metro_region) + year + f(ID,model="besag",graph="FOQ_INLA")'))
+                   paste0('deaths ~ ', paste(covs, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metro_region) + year + f(ID,model="besag",graph="FOQ_INLA")'),
+                   paste0('deaths ~ ', paste(paste0(covs,'*as.factor(broad_age)'), collapse = ' + '), ' + as.factor(agegrp) + as.factor(metro_region) + year + f(ID,model="besag",graph="FOQ_INLA")'))
 for(f in 1:4) {
   inla_model = inla(as.formula(inla_formulas[f]),
                     family = "binomial",
-                    data = mort[fips=='01001', ],
-                    Ntrials = mort[fips=='01001', total_pop],
+                    data = mort,
+                    Ntrials = mort[, total_pop],
                     verbose = FALSE,
                     control.compute=list(config = TRUE, dic = TRUE),
                     control.inla=list(int.strategy='eb', h = 1e-3, tolerance = 1e-6),
                     control.fixed=list(prec.intercept = 0,
-                                       prec = 1))
+                                       prec = 1),
+                    num.threads = 4)
   assign(paste0('inla_model_', f), inla_model)
   mort[, (paste0('inla_pred_', f)) := inla_model$summary.fitted.values$mean]
   mort[, (paste0('inla_residual_', f)) := nmx - get(paste0('inla_pred_', f))]
@@ -256,55 +249,142 @@ lisa <- plot_lisa(lisa_var = 'nmx',
   dev.off()
   
 ## Do everything else with the full spatial model and metro*region interaction.
-inla_model = inla(as.formula(inla_formulas[5]),
-                    family = "binomial",
-                    data = mort,
-                    Ntrials = mort[, total_pop],
-                    verbose = FALSE,
-                    control.compute=list(config = TRUE, dic = TRUE),
-                    control.inla=list(int.strategy='eb', h = 1e-3, tolerance = 1e-6),
-                    control.fixed=list(prec.intercept = 0,
-                                       prec = 1))
+## With all-age covariates             DIC = 1025807.50
+## With broad-age-specific covariates  DIC =  982275.99
+full_mort <- copy(mort)
+
+mort <- copy(full_mort)
+mort <- mort[agegrp %in% 45:60, ]
+# inla_model = inla(as.formula(inla_formulas[5]),
+#                     family = "binomial",
+#                     data = mort,
+#                     Ntrials = mort[, total_pop],
+#                     verbose = FALSE,
+#                     control.compute=list(config = TRUE, dic = TRUE),
+#                     control.inla=list(int.strategy='eb', h = 1e-3, tolerance = 1e-6),
+#                     control.fixed=list(prec.intercept = 0,
+#                                        prec = 1),
+#                     num.threads = 4)
 
 ## Make full prediction, full residual, and load posterior mean for all components.
 mort[, inla_pred := inla_model$summary.fitted.values$mean]
 mort[, inla_residual := logit(nmx) - logit(inla_pred)]
 mort[nmx==0, inla_residual := logit(nmx+0.000001) - logit(inla_pred)]
 coefs <- make_beta_table(inla_model, paste0(race,' ',sex_option,' ',domain))
-saveRDS(coefs, file = paste0(out_dir,'coefs_', output_name, '.RDS'))
+#saveRDS(coefs, file = paste0(out_dir,'coefs_', output_name, '.RDS'))
+
+## Plot fitted age curve
+age_curve <- copy(coefs[grep('agegrp',name),])
+age_curve[, odds := exp(coef + coefs[name=='(Intercept)', coef] + coefs[name=='year', coef * 2015])]
+age_curve[, coef := odds / (1 + odds)]
+age_curve[, age := as.numeric(gsub('as.factor\\(agegrp\\)','',name))]
+age_obs <- mort[, list(deaths=sum(deaths),total_pop=sum(total_pop)), by=c('agegrp')]
+age_obs[, nmx := deaths / total_pop]
+#pdf(paste0(out_dir,'/fitted_age_pattern.pdf'))
+ggplot() + 
+  geom_line(data=age_curve,
+            aes(x=age,
+                y=coef),
+            color='red') + 
+  geom_point(data=age_obs,
+            aes(x=agegrp,
+                y=nmx),
+            color='black') + theme_minimal()
+#dev.off()
 
 ## Run Shapley decomposition on change over time in ASDR.
 ## Create permutations (2010-1990, 6 changes, total permutations = 2^6 = 64, 32 pairs)
 ## i.e. one pair for poverty is delta_m|PV=2013,IS=1990,CE=1990,FB=1990,time=1990,residual=1990 - 
 ##                              delta_m|PV=1990,IS=1990,CE=1990,FB=1990,time=1990,residual=1990
-permutations <- make_permutations(fes = covs,
-                                  start_year = start_year,
-                                  end_year = end_year)
+# permutations <- make_permutations(fes = covs,
+#                                   start_year = start_year,
+#                                   end_year = end_year)
 
 ## Prep and reshape input data from model (all fixed effects of interest + geographic random effects + 
 ## time + spatial random effects + intercept + residual, wide by year)
-d <- copy(mort)
+d <- copy(full_mort)
 d <- merge(d, inla_model$summary.random$ID[c('ID','mean')], by='ID')
 setnames(d, 'mean', 'spatial_effect')
 d <- d[year %in% c(start_year,end_year), ]
-d <- dcast(d, fips ~ year, value.var = c(covs, 'inla_residual', 'inla_pred', 'total_pop', 'metro_region', 'nmx', 'spatial_effect'))
+d <- dcast(d, fips + agegrp ~ year, value.var = c(covs, 'inla_residual', 'inla_pred', 'total_pop', 'metro_region', 'nmx', 'spatial_effect'))
 d[, (paste0('year_', start_year)) := start_year]
 d[, (paste0('year_', end_year)) := end_year]
 
 ## Calculate contribution attributable to each time-varying component. By definition this adds up to total observed change in the outcome
 ## because of inclusion of the residual.
-all_contributions <- rbindlist(lapply(c(covs, 'year','residual'), calculate_contribution,
-                                      fes=covs,
-                                      start_year=start_year,
-                                      end_year=end_year))
+## Change decompositions occur at the county-age-level.
+# all_contributions <- rbindlist(lapply(c(covs, 'year','residual'), calculate_contribution,
+#                                       fes=covs,
+#                                       start_year=start_year,
+#                                       end_year=end_year,
+#                                       d=d))
+
+## Try running all age groups separately and binding together.
+age_groups <- list(c(0,20), c(25,40), c(45,60), c(65,85))
+all_contributions <- rbindlist(lapply(age_groups, shapley_ages,
+                                      data=full_mort, inla_f=inla_formulas[5], repo=repo, shapley=FALSE))
+
+## Scatter total predicted change from decomp (sum of contributions) with observed change.
+plot_metro_regions <- c('Lg central metro_Middle Atlantic',
+                        'Nonmetro_East South Central')
+decomp_change <- all_contributions[, list(decomp_change=sum(contribution_mort)), by=c('fips','agegrp')]
+decomp_change <- merge(decomp_change, d[, c('fips','agegrp','nmx_2000','nmx_2015','total_pop_2015','metro_region_2015')], by=c('fips','agegrp'))
+decomp_change[, obs_change := nmx_2015 - nmx_2000]
+round(cor(decomp_change[, c('decomp_change','obs_change')], use='complete.obs')[1,2],2)
+decomp_change <- decomp_change[, list(decomp_change=weighted.mean(decomp_change,total_pop_2015,na.rm=T)), by=c('agegrp','metro_region_2015')]
+setnames(decomp_change, 'metro_region_2015', 'metro_region')
+decomp_change <- decomp_change[metro_region %in% plot_metro_regions, ]
+all_contributions_age <- merge(full_mort[year==2015, c('agegrp','fips','total_pop','metro_region')], all_contributions, by=c('agegrp','fips'))
+all_contributions_age <- all_contributions_age[, list(contribution_mort=weighted.mean(contribution_mort, total_pop, na.rm=T)), by=c('fe','agegrp','metro_region')]
+all_contributions_age <- all_contributions_age[metro_region %in% plot_metro_regions, ]
+ggplot() +
+  geom_bar(data=all_contributions_age,
+           aes(x=as.factor(agegrp),
+               y=contribution_mort*100000,
+               fill=fe),
+           color='black',
+           stat='identity') + 
+  geom_point(data=decomp_change,
+             aes(x=as.factor(agegrp),
+                 y=decomp_change*100000),
+             size=3) + 
+  labs(x = '', y = 'Change in mortality rate (per 100,000)', title = paste0('Change in mortality rate by age, 2000-2015.')) + 
+  theme_minimal() +
+  facet_wrap(~metro_region) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10)) +
+  scale_fill_manual(values = brewer.pal(length(unique(all_contributions[, fe])),'Spectral'), name='Component')
+
+## Create age-standardized contributions over some age range using 2000 Census age structure.
+age_start <- 45
+age_end <- 60
+pops_2000 <- full_mort[year==2000 & agegrp >= age_start & agegrp <= age_end, ]
+age_wts_combined <- pops_2000[, list(pop=sum(total_pop)), by=c('agegrp','sex')]
+totals <- pops_2000[, list(total=sum(total_pop)), by=c('sex')]
+age_wts_combined <- age_wts_combined[!is.na(agegrp), ]
+age_wts_combined <- merge(age_wts_combined, totals, by='sex')
+age_wts_combined[, age_wt := pop/total]
+age_wts_combined <- age_wts_combined[, c('age_wt','agegrp')]
+collapsed <- merge(all_contributions, age_wts_combined, by='agegrp')
+collapsed <- collapsed[, list(contribution_mort=weighted.mean(contribution_mort, age_wt)), by=c('fips','fe')]
 
 ## Collapse contributions to metro-region.
-collapsed <- merge(all_contributions, unique(d[, c('fips','metro_region_2015','total_pop_2015','total_pop_2000')]), by='fips')
+all_pops <- d[agegrp >= age_start & agegrp <= age_end, list(total_pop_2015=sum(total_pop_2015), total_pop_2000=sum(total_pop_2000)), by=c('fips','metro_region_2015')]
+#collapsed <- merge(all_contributions, unique(all_pops[, c('fips','metro_region_2015','total_pop_2015','total_pop_2000')]), by='fips')
+collapsed <- merge(collapsed, all_pops, by='fips')
 collapsed <- collapsed[, list(contribution_mort=wtd.mean(contribution_mort, total_pop_2015, na.rm=TRUE),
                                               total_pop_2015=sum(total_pop_2015, na.rm=TRUE)),
                                        by=c('metro_region_2015','fe')]
 collapsed <- merge(collapsed, collapsed[, list(total_change=sum(contribution_mort, na.rm=TRUE)), by='metro_region_2015'], by='metro_region_2015')
 collapsed[, metro_region := factor(metro_region_2015, levels=unique(collapsed$metro_region_2015[order(collapsed[, total_change])]))]
+
+## Calculate observed age-standardized change at the metro-region for comparison.
+obs <- merge(d, age_wts_combined, by='agegrp')
+obs <- obs[, list(nmx_2000=weighted.mean(nmx_2000, age_wt),
+                  nmx_2015=weighted.mean(nmx_2015, age_wt)), by=c('fips')]
+obs <- merge(obs, all_pops, by='fips')
+obs <- obs[, list(nmx_2000=weighted.mean(nmx_2000, total_pop_2000),
+                  nmx_2015=weighted.mean(nmx_2015, total_pop_2015)), by=c('metro_region_2015')]
+obs[, nmx_change := nmx_2015 - nmx_2000]
 
 ## Format for plotting
 cov_names <- get_clean_cov_names()
@@ -315,7 +395,7 @@ collapsed[, cov_name := factor(cov_name, levels=cov_names[fe %in% collapsed[, fe
 ## Plot results of decomposition by metro-region.
 collapsed[, metro_region_clean := gsub('_',' - ',metro_region)]
 collapsed[, metro_region_clean := factor(metro_region_clean, levels=unique(collapsed$metro_region_clean[order(collapsed[, total_change])]))]
-pdf(paste0(out_dir,'/decomp_', output_name, '.pdf'), width = 11, height = 11*(2/3))
+#pdf(paste0(out_dir,'/decomp_', output_name, '.pdf'), width = 11, height = 11*(2/3))
 ggplot() +
   geom_bar(data=collapsed,
            aes(x=metro_region_clean,
@@ -331,7 +411,7 @@ ggplot() +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10)) +
   scale_fill_manual(values = brewer.pal(length(unique(collapsed[, cov_name])),'Spectral'), name='Component')
-dev.off()
+#dev.off()
 
 ## Plot maps of each contribution by county.
 pdf(paste0(out_dir,'/maps_', output_name, '.pdf'), height=6, width=9)

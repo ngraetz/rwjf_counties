@@ -8,7 +8,7 @@ make_permutations <- function(fes, start_year, end_year) {
 }
 
 ## Predict on all permutations.
-calculate_contribution <- function(fe, fes, start_year, end_year) {
+calculate_contribution <- function(fe, fes, start_year, end_year, dt, coefs) {
   ## Grab all permutations where this fixed effect is changing (2010) and calculate difference vs. difference if it had not changed (1990).
   ## The difference of these two differences is the "contribution" of change in that fixed effect WITHIN this permutation (though this
   ## difference seems to be identical across permutations).
@@ -17,10 +17,10 @@ calculate_contribution <- function(fe, fes, start_year, end_year) {
   other_fes <- c(fes, 'year','residual')
   other_fes <- other_fes[other_fes!=fe]
   inv_logit <- function(x) {exp(x)/(1+exp(x))}
-  calculate_permutation <- function(p, dt) {
+  calculate_permutation <- function(p, perm_dt) {
     
     ## Select permutation.
-    this_dt <- copy(dt)
+    this_dt <- copy(perm_dt)
     p_option <- fe_permutations[p,]
     
     ## Assign values to be added from all effects besides the target effect.
@@ -53,8 +53,13 @@ calculate_contribution <- function(fe, fes, start_year, end_year) {
       if(r=='Lg central metro_Pacific') this_dt[get(paste0('metro_region_',end_year))==r, metro_region_int := 0]
       if(r!='Lg central metro_Pacific') this_dt[get(paste0('metro_region_',end_year))==r, metro_region_int := coefs[grep(r,name), coef]]
     }
-    this_dt[, (paste0('p_with_change_',p)) := get((paste0('p_with_change_',p))) + coefs[name=='(Intercept)', coef] + metro_region_int + get(paste0('spatial_effect_',start_year))]
-    this_dt[, (paste0('p_without_change_',p)) := get((paste0('p_without_change_',p))) + coefs[name=='(Intercept)', coef] + metro_region_int + get(paste0('spatial_effect_',start_year))]
+    if(p==1) message('Age groups: ', paste(unique(this_dt[, agegrp]), sep=' '))
+    for(a in unique(this_dt[, agegrp])) {
+      if(a==min(unique(this_dt[, agegrp]))) this_dt[agegrp==a, age_int := 0]
+      if(a!=min(unique(this_dt[, agegrp]))) this_dt[agegrp==a, age_int := coefs[grep(paste0('agegrp\\)',a),name), coef]]
+    }
+    this_dt[, (paste0('p_with_change_',p)) := get((paste0('p_with_change_',p))) + coefs[name=='(Intercept)', coef] + age_int + metro_region_int + get(paste0('spatial_effect_',start_year))]
+    this_dt[, (paste0('p_without_change_',p)) := get((paste0('p_without_change_',p))) + coefs[name=='(Intercept)', coef] + age_int + metro_region_int + get(paste0('spatial_effect_',start_year))]
     
     ## This change (2010 prediction based just on FE of interest - 1990 prediction) is the same across all permutations... 
     ## But then we are just adding a constant to both sides derived from this specific permutation of all other effects...?
@@ -71,18 +76,18 @@ calculate_contribution <- function(fe, fes, start_year, end_year) {
     this_dt[, diff := inv_logit(get(paste0('p_with_change_',p))) - inv_logit(get(paste0('p_without_change_',p)))]
     this_dt[, p_with_change := get(paste0('p_with_change_',p))]
     this_dt[, p_without_change := get(paste0('p_without_change_',p))]
-    this_dt <- this_dt[, c('fips', 'p_with_change', 'p_without_change', 'diff')]
+    this_dt <- this_dt[, c('fips', 'agegrp', 'p_with_change', 'p_without_change', 'diff')]
     this_dt[, p := p]
     return(this_dt)
     
   }
   
   message('Calculating all permutations...')
-  all_diffs <- as.data.table(rbind.fill(lapply(1:dim(fe_permutations)[1], calculate_permutation, dt=d)))
+  all_diffs <- as.data.table(rbind.fill(lapply(1:dim(fe_permutations)[1], calculate_permutation, perm_dt=dt)))
   ## As this is a Shapley decomposition, here is where we "average over" potential path dependencies (i.e. all the different permutations).
   ## A more complex generalized decomposition could be used, such as g-computation (actually estimate all the path dependencies, decompose
   ## direct/indirect change attributable via bootstrap and stochastic simulation through periods.
-  all_diffs <- all_diffs[, list(contribution_mort=mean(diff)), by=c('fips')]
+  all_diffs <- all_diffs[, list(contribution_mort=mean(diff)), by=c('fips','agegrp')]
   all_diffs[, fe := fe]
   return(all_diffs)
   
@@ -118,3 +123,67 @@ logit <- function(x) {
 inv_logit <- function(x) {
   return(exp(x)/(1+exp(x)))
 }
+
+
+shapley_ages <- function(ages,data,inla_f,repo,shapley) {
+  
+  mort <- copy(data[agegrp %in% ages[1]:ages[2], ])
+  message(unique(mort[, agegrp]))
+  inla_model = inla(as.formula(inla_f),
+                    family = "binomial",
+                    data = mort,
+                    Ntrials = mort[, total_pop],
+                    verbose = FALSE,
+                    control.compute=list(config = TRUE, dic = TRUE),
+                    control.inla=list(int.strategy='eb', h = 1e-3, tolerance = 1e-6),
+                    control.fixed=list(prec.intercept = 0,
+                                       prec = 1),
+                    num.threads = 4)
+  
+  ## Save coefs table
+  coefs <- make_beta_table(inla_model, paste0('age_',  ages[1], '_',  ages[2], '_', sex_option))
+  saveRDS(coefs, file = paste0(repo,'/coefs/age_',  ages[1], '_',  ages[2], '_', sex_option,'.RDS'))
+  message(paste0('Saving coefs: ',repo,'/coefs/age_',  ages[1], '_',  ages[2], '_', sex_option,'.RDS'))
+  
+  if(shapley==FALSE) {
+    return(NULL)
+  }
+  if(shapley==TRUE) { 
+  ## Make full prediction, full residual, and load posterior mean for all components.
+  mort[, inla_pred := inla_model$summary.fitted.values$mean]
+  mort[, inla_residual := logit(nmx) - logit(inla_pred)]
+  mort[nmx==0, inla_residual := logit(nmx+0.000001) - logit(inla_pred)]
+  model_coefs <- make_beta_table(inla_model, paste0(race,' ',sex_option,' ',domain))
+  #saveRDS(coefs, file = paste0(out_dir,'coefs_', output_name, '.RDS'))
+  
+  ## Run Shapley decomposition on change over time in ASDR.
+  ## Create permutations (2010-1990, 6 changes, total permutations = 2^6 = 64, 32 pairs)
+  ## i.e. one pair for poverty is delta_m|PV=2013,IS=1990,CE=1990,FB=1990,time=1990,residual=1990 - 
+  ##                              delta_m|PV=1990,IS=1990,CE=1990,FB=1990,time=1990,residual=1990
+  permutations <- make_permutations(fes = covs,
+                                    start_year = start_year,
+                                    end_year = end_year)
+  
+  ## Prep and reshape input data from model (all fixed effects of interest + geographic random effects + 
+  ## time + spatial random effects + intercept + residual, wide by year)
+  #d <- copy(mort)
+  shap_d <- merge(mort, inla_model$summary.random$ID[c('ID','mean')], by='ID')
+  setnames(shap_d, 'mean', 'spatial_effect')
+  shap_d <- shap_d[year %in% c(start_year,end_year), ]
+  shap_d <- dcast(shap_d, fips + agegrp ~ year, value.var = c(covs, 'inla_residual', 'inla_pred', 'total_pop', 'metro_region', 'nmx', 'spatial_effect'))
+  shap_d[, (paste0('year_', start_year)) := start_year]
+  shap_d[, (paste0('year_', end_year)) := end_year]
+  
+  ## Calculate contribution attributable to each time-varying component. By definition this adds up to total observed change in the outcome
+  ## because of inclusion of the residual.
+  ## Change decompositions occur at the county-age-level.
+  all_contributions <- rbindlist(lapply(c(covs, 'year','residual'), calculate_contribution,
+                                        fes=covs,
+                                        start_year=start_year,
+                                        end_year=end_year,
+                                        dt=shap_d,
+                                        coefs=model_coefs))
+  return(all_contributions)
+  }
+}
+
