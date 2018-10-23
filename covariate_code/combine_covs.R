@@ -5,7 +5,7 @@ library(rgeos)
 library(raster)
 library(sp)
 library(rgdal)
-repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
+repo <- 'C:/Users/Nick/Documents/repos/rwjf_counties/'
 source(paste0(repo, 'functions.R'))
 source(paste0(repo, 'functions_shapley.R'))
 make_maps <- FALSE
@@ -15,7 +15,7 @@ input_dir <- paste0(repo, 'nmx_clean_data/')
 cov_dir <- paste0(repo, 'covariate_clean_data/')
 
 ## Load master shapefile.
-counties <- readOGR("C:/Users/ngraetz/Downloads/cb_2016_us_county_20m", 'cb_2016_us_county_20m')
+counties <- readOGR(paste0(repo, "/cb_2016_us_county_20m"), 'cb_2016_us_county_20m')
 counties@data <- transform(counties@data, fips = paste0(STATEFP, COUNTYFP)) # create unique county 5-digit fips
 counties <- counties[counties@data$fips != "02016", ] # Drop Aleutians West, AK - screws up plots 
 counties <- counties[counties$STATEFP != '02' &
@@ -51,6 +51,8 @@ pop <- rbind(white_working_pop, black_working_pop)
 for(c in c('bea_covs','bls_laus_covs','factfinder_edu','factfinder_fb','saipe_pov','ahrf_covs','census_acs_migration','factfinder_manufacturing','ihme_interpolated')) {
 message(c)
 cov <- fread(paste0(cov_dir,c,'.csv'))
+cov[, fips := as.character(fips)]
+cov[nchar(fips)==4, fips := paste0('0',fips)]
 cov[, year := as.numeric(year)]
 merge_vars <- c('fips','year','sex','race')
 if(!('race' %in% names(cov))) merge_vars <- merge_vars[merge_vars!='race']
@@ -104,7 +106,7 @@ all_covs <- c("as_diabetes_prev","pa_prev","obesity_prev","as_heavy_drinking_pre
 all_covs <- c("as_diabetes_prev","chr_obesity_prev","obesity_prev")
 pop_map <- pop[, lapply(.SD, weighted.mean, w=total_county_pop, na.rm=TRUE), .SDcols=c(all_covs), by=c('fips','year')]
 if(make_maps==TRUE) {
-pdf(paste0('C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/covariates/prep_plots/all_combined_maps_2.pdf'), height=6, width=9)
+pdf(paste0('C:/Users/Nick/Dropbox/Penn/papers/rwjf/covariates/prep_plots/all_combined_maps_2.pdf'), height=6, width=9)
 for(v in all_covs) {
   message(paste0('Mapping ', v, '...'))
   lower <- quantile(pop[year %in% c(2000,2010,2015), get(v)], probs = 0.05, na.rm=TRUE)
@@ -149,7 +151,7 @@ trends <- merge(trends, race_pop, by=c('fips','year','sex','race'))
 trends <- trends[race==0 & sex==1 & year %in% c(1990,2000,2010,2015), lapply(.SD, weighted.mean, w=total_pop, na.rm=TRUE), .SDcols=all_covs, by=c('metroname','regionname','year')]
 
   cov_names <- get_clean_cov_names()
-  pdf(paste0('C:/Users/ngraetz/Documents/Penn/papers/rwjf/covariates/prep_plots/all_combined_trends.pdf'), width = 12, height = 8)
+  pdf(paste0('C:/Users/Nick/Dropbox/Penn/papers/rwjf/covariates/prep_plots/all_combined_trends.pdf'), width = 12, height = 8)
   for(c in all_covs) {
     trends[is.nan(get(c)), (c) := NA]
     gg <- ggplot() + 
@@ -191,16 +193,17 @@ return(asdr)
 }
 asdr <- Reduce(merge, lapply(1:4, make_asdr))
 all_covs <- readRDS(paste0(repo, 'covariate_clean_data/combined_covs.RDS'))
+all_covs[, log_mds_pc := log(mds_pc+0.01)]
 plot_data <- merge(all_covs[race==0 & sex==1, ], asdr, by=c('fips','year'))
-cov_names <- c('less_12','college','poverty_all','log_hh_income','percent_transfers',
-               'percent_unemployment','mds_pc',
-               'as_diabetes_prev','pa_prev','obesity_prev','as_heavy_drinking_prev','current_smoker_prev',
-               'fb','perc_25_64',"ASDR Males (0-24)","ASDR Females (0-24)","ASDR Males (25-44)","ASDR Females (25-44)",
+cov_names <- c('college','poverty_all','log_hh_income','percent_transfers',
+               'log_mds_pc','chr_mammography','chr_diabetes_monitoring',
+               'as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev',
+               'fb',"ASDR Males (0-24)","ASDR Females (0-24)","ASDR Males (25-44)","ASDR Females (25-44)",
                "ASDR Males (45-64)","ASDR Females (45-64)","ASDR Males (65-100)","ASDR Females (65-100)")
 changes <- dcast(plot_data, fips ~ year, value.var = cov_names)
 for(c in cov_names) changes[, (c) := get(paste0(c,'_2015')) - get(paste0(c,'_2000'))]
 changes <- changes[, cov_names, with=FALSE]
-pdf(paste0('C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/covariates/prep_plots/combined_correlation_matrix.pdf'), width = 12, height = 9)
+pdf(paste0('C:/Users/Nick/Dropbox/Penn/papers/rwjf/covariates/prep_plots/combined_correlation_matrix.pdf'), width = 12, height = 9)
 change <- 0
 # for(change in 0:1) {
 if(change==0) this_plot_data <- copy(plot_data)
@@ -251,3 +254,19 @@ print(this_gg)
 }
 #}
 dev.off()
+
+
+## Test PCA
+all_covs <- readRDS(paste0(repo, 'covariate_clean_data/combined_covs.RDS'))
+all_covs[, log_mds_pc := log(mds_pc+0.01)]
+pca_covs <- c('college','poverty_all','log_hh_income','percent_transfers',
+              'log_mds_pc','chr_mammography','chr_diabetes_monitoring',
+              'as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev',
+              'fb')
+pca_data <- all_covs[year %in% c(2000,2010,2015), ]
+for(n in pca_covs) {
+  message(paste0(n, ': ', length(pca_data[is.na(get(n)), get(n)])))
+  pca_data <- pca_data[!is.na(get(n)), ]
+}
+pca <- prcomp(pca_data[, pca_covs, with=F], center = TRUE, scale. = TRUE)
+

@@ -1,0 +1,30 @@
+---
+title: "Tables testing"
+author: "Nick Graetz"
+output: pdf_document
+---
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# Load knitr package and settings
+library(knitr)
+library(data.table)
+library(ggplot2)
+library(formatR)
+library(kableExtra)
+options(scipen=999)
+#opts_chunk$set(fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE)
+#opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+knit_hooks$set(small.mar = function(before, options, envir) {
+    if (before)    par(mar=c(1,1,1,1)+.1)  # smaller margin on top and right
+})
+opts_chunk$set(small.mar=TRUE)
+```
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+repo <- 'C:/Users/Nick/Documents/repos/rwjf_counties/'
+pca_table <- readRDS(paste0(repo, 'covariate_clean_data/combined_covs_cleaned.RDS'))
+t2 <- kable(pca_table, format = 'latex', booktabs = TRUE, caption = 'Principal components of all cross-sectional covariates (2000, 2010, 2015).', col.names = c('',names(pca_table)[names(pca_table)!='cov']), digits = 2, escape = FALSE) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 8) %>%
+   column_spec(column = 1, width = "8em") 
+print(t2)
+```
