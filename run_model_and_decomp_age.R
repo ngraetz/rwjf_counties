@@ -33,11 +33,11 @@ out_dir <- paste0(repo, '/results')
 race <- 'nhw'
 sex_option <- 1
 domain <- 'national'
-cov_domain <- 'all'
-#for(cov_domain in c('med','beh','pop')) {
-if(cov_domain=='ses') covs <- c('college','poverty_all','log_hh_income','percent_transfers','percent_unemployment') ## To add: eviction_rate, perc_manufacturing
+#cov_domain <- 'all'
+for(cov_domain in c('ses','med','beh','all')) {
+if(cov_domain=='ses') covs <- c('college','log_hh_income','percent_transfers') ## To add: eviction_rate, perc_manufacturing
 if(cov_domain=='med') covs <- c('log_mds_pc','chr_mammography','chr_diabetes_monitoring') ## To add: insurance (SAHIE)
-if(cov_domain=='beh') covs <- c('as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev')
+if(cov_domain=='beh') covs <- c('current_smoker_prev','obesity_prev','as_heavy_drinking_prev')
 if(cov_domain=='pop') covs <- c('fb','perc_25_64') ## To add: perc_black, perc_hispanic, perc_native, net_migration
 if(cov_domain=='all') covs <- c('college','poverty_all','log_hh_income','percent_transfers',
                                 'log_mds_pc','chr_mammography','chr_diabetes_monitoring',
@@ -335,21 +335,23 @@ age_groups <- list(c(0,20), c(25,40), c(45,60), c(65,85))
 ## Standardize all variables to mean=0, sd=1
 library(dplyr)
 full_mort <- as.data.table(full_mort %>% mutate_at(funs(scale(.) %>% as.vector), .vars=covs))
-for(c in covs) {
-  message(c)
-  inla_formula <- paste0('deaths ~ ', paste(c, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metro_region) + year + f(ID,model="besag",graph="FOQ_INLA")')
-  all_contributions <- rbindlist(lapply(age_groups, shapley_ages,
-                                        data=full_mort, inla_f=inla_formula,
-                                        coef_file=paste0(sex_option,'_',c),
-                                        shapley=FALSE,
-                                        shap_covs=covs))
-}
+# Run each covariate alone
+# for(c in covs) {
+#   message(c)
+#   inla_formula <- paste0('deaths ~ ', paste(c, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metro_region) + year + f(ID,model="besag",graph="FOQ_INLA")')
+#   all_contributions <- rbindlist(lapply(age_groups, shapley_ages,
+#                                         data=full_mort, inla_f=inla_formula,
+#                                         coef_file=paste0(sex_option,'_',c),
+#                                         shapley=FALSE,
+#                                         shap_covs=covs))
+# }
+# Run with all covariates
 all_contributions <- rbindlist(lapply(age_groups, shapley_ages,
                                       data=full_mort, inla_f=inla_formulas[5],
                                       coef_file=paste0(sex_option,'_',cov_domain),
                                       shapley=FALSE,
                                       shap_covs=covs))
-#}
+}
 
 ## Scatter total predicted change from decomp (sum of contributions) with observed change.
 plot_metro_regions <- c('Lg central metro_Middle Atlantic',
