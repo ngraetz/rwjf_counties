@@ -39,10 +39,11 @@ if(cov_domain=='ses') covs <- c('college','poverty_all','log_hh_income','percent
 if(cov_domain=='med') covs <- c('log_mds_pc','chr_mammography','chr_diabetes_monitoring') ## To add: insurance (SAHIE)
 if(cov_domain=='beh') covs <- c('as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev')
 if(cov_domain=='pop') covs <- c('fb','perc_25_64') ## To add: perc_black, perc_hispanic, perc_native, net_migration
-if(cov_domain=='all') covs <- c('college','poverty_all','log_hh_income','percent_transfers','percent_unemployment',
+if(cov_domain=='all') covs <- c('college','poverty_all','log_hh_income','percent_transfers',
                                 'log_mds_pc','chr_mammography','chr_diabetes_monitoring',
                                 'as_diabetes_prev','current_smoker_prev','obesity_prev','as_heavy_drinking_prev',
-                                'fb','perc_25_64') ## To add: perc_black, perc_hispanic, perc_native, net_migration
+                                'fb') ## To add: perc_black, perc_hispanic, perc_native, net_migration
+if(cov_domain=='custom') covs <- c('college','poverty_all','log_hh_income','percent_transfers','percent_unemployment','fb','perc_25_64')
 year_range <- c(2000,2010,2015)
 plot_trends <- FALSE
 
@@ -331,6 +332,18 @@ d[, (paste0('year_', end_year)) := end_year]
 
 ## Try running all age groups separately and binding together.
 age_groups <- list(c(0,20), c(25,40), c(45,60), c(65,85))
+## Standardize all variables to mean=0, sd=1
+library(dplyr)
+full_mort <- as.data.table(full_mort %>% mutate_at(funs(scale(.) %>% as.vector), .vars=covs))
+for(c in covs) {
+  message(c)
+  inla_formula <- paste0('deaths ~ ', paste(c, collapse = ' + '), ' + as.factor(agegrp) + as.factor(metro_region) + year + f(ID,model="besag",graph="FOQ_INLA")')
+  all_contributions <- rbindlist(lapply(age_groups, shapley_ages,
+                                        data=full_mort, inla_f=inla_formula,
+                                        coef_file=paste0(sex_option,'_',c),
+                                        shapley=FALSE,
+                                        shap_covs=covs))
+}
 all_contributions <- rbindlist(lapply(age_groups, shapley_ages,
                                       data=full_mort, inla_f=inla_formulas[5],
                                       coef_file=paste0(sex_option,'_',cov_domain),
@@ -369,7 +382,7 @@ ggplot() +
   scale_fill_manual(values = brewer.pal(length(unique(all_contributions[, fe])),'Spectral'), name='Component')
 
 ## Create age-standardized contributions over some age range using 2000 Census age structure.
-age_start <- 45
+age_start <- 25
 age_end <- 60
 pops_2000 <- full_mort[year==2000 & agegrp >= age_start & agegrp <= age_end, ]
 age_wts_combined <- pops_2000[, list(pop=sum(total_pop)), by=c('agegrp','sex')]
@@ -421,7 +434,7 @@ ggplot() +
              aes(x=metro_region_clean,
                  y=contribution_mort*100000),
              size=3) + 
-  labs(x = '', y = 'Change in ASDR', title = paste0('Change in ', output_name, ' ASDR, ',start_year,'-',end_year)) + 
+  labs(x = '', y = 'Change in ASDR', title = paste0('Change in ASDR 25-64, ',start_year,'-',end_year)) + 
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10)) +
   scale_fill_manual(values = brewer.pal(length(unique(collapsed[, cov_name])),'Spectral'), name='Component')
