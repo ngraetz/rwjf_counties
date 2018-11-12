@@ -228,6 +228,5 @@ model_permute <- function(ages,data,inla_f,coef_file,shapley,shap_covs,perm) {
   return(coefs)
 }
 
-data=full_mort;inla_f=inla_formula;coef_file=paste0(sex_option,'_',c);shapley=FALSE;shap_covs=covs
 
 
