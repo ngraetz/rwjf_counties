@@ -47,8 +47,17 @@ black_working_pop <- black_working_pop[, c('fips','year','sex','race','perc_25_6
 
 pop <- rbind(white_working_pop, black_working_pop)
 
+map <- fread(paste0(repo, 'covariate_code/bea_county_template.csv'))
+map[, fips := as.character(fips)]
+map[, bea_fips := as.character(bea_fips)]
+map[nchar(fips)==4, fips := paste0('0',fips)]
+map[is.na(bea_fips), bea_fips := fips]
+pop <- merge(pop, map, all.x=TRUE, by='fips')
+pop[, bea_fips := as.character(bea_fips)]
+pop[nchar(bea_fips)==4, bea_fips := paste0('0',bea_fips)]
+
 ## Merge all other covariates
-for(c in c('bea_covs','bls_laus_covs','factfinder_edu','factfinder_fb','saipe_pov','ahrf_covs','census_acs_migration','factfinder_manufacturing','ihme_interpolated')) {
+for(c in c('bea_covs','bea_covs_v2','bls_laus_covs','factfinder_edu','factfinder_fb','saipe_pov','ahrf_covs','census_acs_migration','factfinder_manufacturing','ihme_interpolated')) {
 message(c)
 cov <- fread(paste0(cov_dir,c,'.csv'))
 cov[, fips := as.character(fips)]
@@ -58,15 +67,7 @@ merge_vars <- c('fips','year','sex','race')
 if(!('race' %in% names(cov))) merge_vars <- merge_vars[merge_vars!='race']
 if(!('sex' %in% names(cov))) merge_vars <- merge_vars[merge_vars!='sex']
 ## Handle Virginia FIPS in BEA
-if(c=='bea_covs') {
-  map <- fread(paste0(repo, 'covariate_code/bea_county_template.csv'))
-  map[, fips := as.character(fips)]
-  map[, bea_fips := as.character(bea_fips)]
-  map[nchar(fips)==4, fips := paste0('0',fips)]
-  map[is.na(bea_fips), bea_fips := fips]
-  pop <- merge(pop, map, all.x=TRUE, by='fips')
-  pop[, bea_fips := as.character(bea_fips)]
-  pop[nchar(bea_fips)==4, bea_fips := paste0('0',bea_fips)]
+if(c=='bea_covs' | c=='bea_covs_v2') {
   cov[, bea_fips := fips]
   cov[, fips := NULL]
   merge_vars <- c('bea_fips','year')
@@ -141,7 +142,7 @@ dev.off()
 }
 
 ## Create trend plots of everything by metro (color) and region (facet)
-all_covs <- 'manufacturing'
+all_covs <- c('percent_transfers','percent_transfers_no_ss')
 
 metro_codes <- fread(paste0(repo, 'covariate_clean_data/FIPSmetroregion.csv'))
 metro_codes[, fips := as.character(fips)]
@@ -171,6 +172,8 @@ trends <- trends[race==0 & sex==1 & year %in% c(1990,2000,2010,2015), lapply(.SD
   dev.off()
 
 ## Save.
+pop[, percent_transfers := NULL]
+pop[, percent_transfers := percent_transfers_no_ss]
 saveRDS(pop, paste0(repo, 'covariate_clean_data/combined_covs.RDS'))
 
 ## Make covariance matrix heat map
