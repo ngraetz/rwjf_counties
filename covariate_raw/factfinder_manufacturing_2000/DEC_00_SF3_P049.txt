@@ -1,0 +1,13 @@
+P049
+SEX BY INDUSTRY FOR THE EMPLOYED CIVILIAN POPULATION 16 YEARS AND OVER [55]
+
+Universe: Civilian employed population 16 years and over
+
+NOTE: Data based on a sample except in P3, P4, H3, and H4. For
+information on confidentiality protection, sampling error,
+nonsampling error, definitions, and count corrections see
+http://www.census.gov/prod/cen2000/doc/sf3.pdf
+
+
+
+

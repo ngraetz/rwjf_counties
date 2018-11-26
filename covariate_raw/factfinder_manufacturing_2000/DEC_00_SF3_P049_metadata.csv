@@ -1,0 +1,58 @@
+GEO.id,Id
+GEO.id2,Id2
+GEO.display-label,Geography
+VD01,Total:
+VD02,Male:
+VD03,"Male: - Agriculture, forestry, fishing and hunting, and mining:"
+VD04,"Male: - Agriculture, forestry, fishing and hunting, and mining: - Agriculture, forestry, fishing and hunting"
+VD05,"Male: - Agriculture, forestry, fishing and hunting, and mining: - Mining"
+VD06,Male: - Construction
+VD07,Male: - Manufacturing
+VD08,Male: - Wholesale trade
+VD09,Male: - Retail trade
+VD10,"Male: - Transportation and warehousing, and utilities:"
+VD11,"Male: - Transportation and warehousing, and utilities: - Transportation and warehousing"
+VD12,"Male: - Transportation and warehousing, and utilities: - Utilities"
+VD13,Male: - Information
+VD14,"Male: - Finance, insurance, real estate and rental and leasing:"
+VD15,"Male: - Finance, insurance, real estate and rental and leasing: - Finance and insurance"
+VD16,"Male: - Finance, insurance, real estate and rental and leasing: - Real estate and rental and leasing"
+VD17,"Male: - Professional, scientific, management, administrative, and waste management services:"
+VD18,"Male: - Professional, scientific, management, administrative, and waste management services: - Professional, scientific, and technical services"
+VD19,"Male: - Professional, scientific, management, administrative, and waste management services: - Management of companies and enterprises"
+VD20,"Male: - Professional, scientific, management, administrative, and waste management services: - Administrative and support and waste management services"
+VD21,"Male: - Educational, health and social services:"
+VD22,"Male: - Educational, health and social services: - Educational services"
+VD23,"Male: - Educational, health and social services: - Health care and social assistance"
+VD24,"Male: - Arts, entertainment, recreation, accommodation and food services:"
+VD25,"Male: - Arts, entertainment, recreation, accommodation and food services: - Arts, entertainment, and recreation"
+VD26,"Male: - Arts, entertainment, recreation, accommodation and food services: - Accommodation and food services"
+VD27,Male: - Other services (except public administration)
+VD28,Male: - Public administration
+VD29,Female:
+VD30,"Female: - Agriculture, forestry, fishing and hunting, and mining:"
+VD31,"Female: - Agriculture, forestry, fishing and hunting, and mining: - Agriculture, forestry, fishing and hunting"
+VD32,"Female: - Agriculture, forestry, fishing and hunting, and mining: - Mining"
+VD33,Female: - Construction
+VD34,Female: - Manufacturing
+VD35,Female: - Wholesale trade
+VD36,Female: - Retail trade
+VD37,"Female: - Transportation and warehousing, and utilities:"
+VD38,"Female: - Transportation and warehousing, and utilities: - Transportation and warehousing"
+VD39,"Female: - Transportation and warehousing, and utilities: - Utilities"
+VD40,Female: - Information
+VD41,"Female: - Finance, insurance, real estate and rental and leasing:"
+VD42,"Female: - Finance, insurance, real estate and rental and leasing: - Finance and insurance"
+VD43,"Female: - Finance, insurance, real estate and rental and leasing: - Real estate and rental and leasing"
+VD44,"Female: - Professional, scientific, management, administrative, and waste management services:"
+VD45,"Female: - Professional, scientific, management, administrative, and waste management services: - Professional, scientific, and technical services"
+VD46,"Female: - Professional, scientific, management, administrative, and waste management services: - Management of companies and enterprises"
+VD47,"Female: - Professional, scientific, management, administrative, and waste management services: - Administrative and support and waste management services"
+VD48,"Female: - Educational, health and social services:"
+VD49,"Female: - Educational, health and social services: - Educational services"
+VD50,"Female: - Educational, health and social services: - Health care and social assistance"
+VD51,"Female: - Arts, entertainment, recreation, accommodation and food services:"
+VD52,"Female: - Arts, entertainment, recreation, accommodation and food services: - Arts, entertainment, and recreation"
+VD53,"Female: - Arts, entertainment, recreation, accommodation and food services: - Accommodation and food services"
+VD54,Female: - Other services (except public administration)
+VD55,Female: - Public administration

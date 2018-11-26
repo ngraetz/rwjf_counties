@@ -5,7 +5,7 @@ library(rgeos)
 library(raster)
 library(sp)
 library(rgdal)
-repo <- 'C:/Users/Nick/Documents/repos/rwjf_counties/'
+repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
 source(paste0(repo, 'functions.R'))
 source(paste0(repo, 'functions_shapley.R'))
 make_maps <- FALSE
@@ -141,6 +141,8 @@ dev.off()
 }
 
 ## Create trend plots of everything by metro (color) and region (facet)
+all_covs <- 'manufacturing'
+
 metro_codes <- fread(paste0(repo, 'covariate_clean_data/FIPSmetroregion.csv'))
 metro_codes[, fips := as.character(fips)]
 metro_codes[nchar(fips)==4, fips := paste0('0',fips)]
@@ -151,7 +153,7 @@ trends <- merge(trends, race_pop, by=c('fips','year','sex','race'))
 trends <- trends[race==0 & sex==1 & year %in% c(1990,2000,2010,2015), lapply(.SD, weighted.mean, w=total_pop, na.rm=TRUE), .SDcols=all_covs, by=c('metroname','regionname','year')]
 
   cov_names <- get_clean_cov_names()
-  pdf(paste0('C:/Users/Nick/Dropbox/Penn/papers/rwjf/covariates/prep_plots/all_combined_trends.pdf'), width = 12, height = 8)
+  pdf(paste0('C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/covariates/prep_plots/all_combined_trends.pdf'), width = 12, height = 8)
   for(c in all_covs) {
     trends[is.nan(get(c)), (c) := NA]
     gg <- ggplot() + 

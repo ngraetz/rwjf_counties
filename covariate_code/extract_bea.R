@@ -16,7 +16,8 @@ library(spdep)
 
 ## Load data and reshape to be by FIPS + year.
 repo <- 'c:/Users/ngraetz/Documents/repos/rwjf_counties/'
-d <- fread("C:/Users/ngraetz/Downloads/CA4/CA4_1969_2016__ALL_AREAS.csv", header = TRUE)
+#d <- fread("C:/Users/ngraetz/Downloads/CA4/CA4_1969_2016__ALL_AREAS.csv", header = TRUE)
+d <- fread("C:/Users/ngraetz/Downloads/CAINC4/CAINC4__ALL_AREAS_2001_2017.csv", header=T, fill=T)
 year_cols <- paste0('year',1969:2016)
 d[, fips := as.character(GeoFIPS)]
 d[nchar(fips)==4, fips := paste0('0',fips)]

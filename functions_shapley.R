@@ -224,7 +224,7 @@ model_permute <- function(ages,data,inla_f,coef_file,shapley,shap_covs,perm) {
   all_fit[name == 'R2', coef := 1 - (sum((mort$nmx-inla_model$summary.fitted.values$mean)^2)/sum((mort$nmx-mean(mort$nmx))^2))]
   coefs <- rbind(coefs, all_fit, fill=T)
   coefs <- coefs[name %in% c(covs,'DIC','RMSE','R2'), c('model','name','coef')]
-  coefs[, p := perm]
+  coefs[, formula := f]
   return(coefs)
 }
 
