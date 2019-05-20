@@ -1,5 +1,6 @@
 library(data.table)
 library(ggplot2)
+library(viridis)
 library(RColorBrewer)
 library(rgeos)
 library(raster)
@@ -8,7 +9,7 @@ library(rgdal)
 repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
 source(paste0(repo, 'functions.R'))
 source(paste0(repo, 'functions_shapley.R'))
-make_maps <- FALSE
+make_maps <- TRUE
 
 ## Load all covariates and save as one big dataset long on county/year, wide on covariate.
 input_dir <- paste0(repo, 'nmx_clean_data/')
@@ -105,20 +106,54 @@ pop[!is.na(perc_labor) & perc_labor >= 100, perc_labor := 100]
 #               'net_mig_per1000','in_mig_per1000','out_mig_per1000')
 all_covs <- c("as_diabetes_prev","pa_prev","obesity_prev","as_heavy_drinking_prev","current_smoker_prev")
 all_covs <- c("as_diabetes_prev","chr_obesity_prev","obesity_prev")
+all_covs <- c('percent_transfers_no_ss','percent_transfers','net_mig_per1000','perc_25_64')
 pop_map <- pop[, lapply(.SD, weighted.mean, w=total_county_pop, na.rm=TRUE), .SDcols=c(all_covs), by=c('fips','year')]
+pop_map[, percent_transfers_no_ss := percent_transfers_no_ss * 100]
 if(make_maps==TRUE) {
-pdf(paste0('C:/Users/Nick/Dropbox/Penn/papers/rwjf/covariates/prep_plots/all_combined_maps_2.pdf'), height=6, width=9)
+pdf(paste0('C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/covariates/prep_plots/transfer_maps.pdf'), height=6, width=9)
 for(v in all_covs) {
   message(paste0('Mapping ', v, '...'))
-  lower <- quantile(pop[year %in% c(2000,2010,2015), get(v)], probs = 0.05, na.rm=TRUE)
-  upper <- quantile(pop[year %in% c(2000,2010,2015), get(v)], probs = 0.99, na.rm=TRUE)
+  lower <- quantile(pop_map[year %in% c(2000,2010,2015), get(v)], probs = 0.05, na.rm=TRUE)
+  upper <- quantile(pop_map[year %in% c(2000,2010,2015), get(v)], probs = 0.99, na.rm=TRUE)
   if(v=='as_diabetes_prev') upper <- 25; lower <- 0; cov_name <- 'IHME diabetes prevalence (BRFSS corrected via NHANES)'
   if(v %in% c('obesity_prev','chr_obesity_prev')) upper <- 50; lower <- 10
-  if(v=='obesity_prev') cov_name <- 'IHME obesity prevalence (BRFSS corrected via NHANES)'
+  if(v=='obesity_prev') {
+    cov_name <- 'IHME obesity prevalence (BRFSS self-report adjusted via NHANES)'
+    lower <- 20
+    upper <- 50
+  }
   if(v=='chr_obesity_prev') cov_name <- 'CHR obesity prevalence (raw BRFSS)'
-  for(y in c(2000,2010,2015)) {
-    map_colors <- rev(brewer.pal(10,'Spectral'))
-    map_colors <- map_colors[c(1,2,4,6,8,10)]
+  if(v=='percent_transfers_no_ss') {
+    cov_name <- 'BLS percent of total personal income as transfers (excluding SS, Medicare)'
+    lower <- 0
+    upper <- 25
+  }
+  if(v=='percent_transfers') {
+    cov_name <- 'BLS percent of total personal income as transfers (including SS, Medicare)'
+    lower <- 10
+    upper <- 45
+  }
+  if(v=='fb') {
+    cov_name <- 'Percent foreign-born'
+    lower <- 0
+    upper <- 25
+  }
+  if(v=='net_mig_per1000') {
+    cov_name <- 'Net migration per 1000'
+    lower <- -30
+    upper <- 30
+  }
+  if(v=='perc_25_64') {
+    cov_name <- 'Percent 25-64'
+    lower <- 40
+    upper <- 60
+  }
+  for(y in c(2000,2015)) {
+    # map_colors <- rev(brewer.pal(10,'Spectral'))
+    # map_colors <- map_colors[c(1,2,4,6,8,10)]
+    vir <- as.data.table(viridis.map)
+    max_color <- rgb(vir[opt=='C', R], vir[opt=='C', G], vir[opt=='C', B])
+    max_color <- max_color[length(max_color)]
     m <- make_county_map(map_dt = pop_map[year==y, ],
                          map_sp = counties,
                          map_var = v,
@@ -126,10 +161,12 @@ for(v in all_covs) {
                          high_is_good = FALSE,
                          map_title = paste0(y, ' ', cov_name),
                          map_limits = c(lower,upper)) +
-      scale_fill_gradientn(colors = map_colors,
-                           limits = c(lower,upper),
-                           na.value = map_colors[length(map_colors)], 
-                           guide = guide_legend(title = 'Prevalence'))
+      scale_fill_viridis_c(option = 'plasma', name = 'Prevalence',
+                           limits = c(lower,upper))
+      # scale_fill_viridis_c(option = 'plasma',
+      #                      # limits = c(lower,upper),
+      #                      # na.value = map_colors[length(map_colors)], 
+      #                      guide = guide_legend(title = 'Prevalence'))
       # scale_fill_gradientn(name='Prevalence', breaks=c(0,10,20,30,40,99999),
       #                      na.value = map_colors[length(map_colors)],
       #                      limits=c(0,50),
@@ -174,7 +211,7 @@ trends <- trends[race==0 & sex==1 & year %in% c(1990,2000,2010,2015), lapply(.SD
 ## Save.
 pop[, percent_transfers := NULL]
 pop[, percent_transfers := percent_transfers_no_ss]
-saveRDS(pop, paste0(repo, 'covariate_clean_data/combined_covs.RDS'))
+saveRDS(pop, paste0(repo, 'covariate_clean_data/combined_covs_v3.RDS'))
 
 ## Make covariance matrix heat map
 mort <- readRDS(paste0(input_dir, 'age_specific_mort.RDS'))

@@ -98,28 +98,37 @@ calculate_contribution <- function(fe, fes, start_year, end_year, dt, coefs, all
 
 
 get_clean_cov_names <- function() {
+  
   metro_names <- c('Lg central metro', 'Lg fringe metro','Md/Sm metro','Nonmetro')
   region_names <- c('Pacific', 'Appalachia', "East South Central","Mountain","West South Central","New England","South Atlantic","East North Central","West North Central","Middle Atlantic")
   metro_region_names <- apply(expand.grid(metro_names, region_names), 1, paste, collapse="_")
-  new_covs <- c("percent_wage_salary_employment","income_per_capita","less_12","college","poverty_all",
-                "percent_transfers","percent_unemployment","perc_25_64","fb","perc_labor","mds_pc",
-                'net_mig_per1000','in_mig_per1000','out_mig_per1000','obesity','net_in_mig','manufacturing',
-                "as_diabetes_prev","pa_prev","obesity_prev","as_heavy_drinking_prev","current_smoker_prev",'log_hh_income',
+  new_covs <- c("log_hh_income","percent_wage_salary_employment","income_per_capita","less_12","college","poverty_all",
+                "percent_transfers","manufacturing","percent_unemployment","perc_black","perc_hispanic","perc_25_64","fb","perc_labor","mds_pc",
+                'net_mig_per1000','in_mig_per1000','out_mig_per1000','obesity','net_in_mig',
+                "as_diabetes_prev","pa_prev","obesity_prev","as_heavy_drinking_prev","current_smoker_prev",
                 'log_mds_pc','chr_mammography','chr_diabetes_monitoring')
-  new_cov_names <- c("Perc wage vs salary","Income/pc","Less HS",'College','Poverty','Transfers','Unemployment',
-                     'Percent 25-64','Foreign-born','Labor force','MDs/pc','Net-mig/1000','In-mig/1000','Out-mig/1000',
-                     'Obesity','Net In-mig','Manufacturing',
-                     "Diabetes","Physical activity","Obesity","Heavy drinking","Smoking","HH income",
+  new_cov_names <- c("HH income","Perc wage vs salary","Income/pc","Less HS",'College','Poverty','Transfers','Manufacturing','Unemployment',
+                     'Percent Black','Percent Hispanic','Percent 25-64','Percent Foreign-born','Labor force','MDs','Net-mig/1000','In-mig/1000','Out-mig/1000',
+                     'Obesity','Net In-mig',
+                     "Diabetes","Physical activity","Obesity","Heavy drinking","Smoking",
                      'MDs/pc','Mammography','Diabetes monitoring')
-  cov_names <- data.table(fe = c(paste0('as.factor(year)',c(1990,2000,2010)),
+  cov_names <- data.table(fe = c('(Intercept)',
+                                 paste0('as.factor(sex)',c(1,2)),
+                                 paste0('as.factor(year)',c(1990,2000,2010,2015)),
+                                 paste0('as.factor(agegrp)',seq(25,60,5)),
                                  paste0('as.factor(metro_region)',metro_region_names),
+                                 paste0('as.factor(metroname)',metro_names),
+                                 paste0('as.factor(regionname)',region_names),
                                  'air_EQI_22July2013','water_EQI_22July2013','land_EQI_22July2013',
-                                 new_covs, 'tbhk_pv','tbhk_is','tbhk_ce','fbp_kt','twhk_pv','twhk_is','twhk_ce','fwp_kt','metro',"Global Moran's I","DIC",'RMSE','year','residual'),
-                          cov_name = c('1990','2000','2010', metro_region_names, 'Air quality','Water quality','Land quality',
+                                 new_covs, 'tbhk_pv','tbhk_is','tbhk_ce','fbp_kt','twhk_pv','twhk_is','twhk_ce','fwp_kt','metro',"Global Moran's I","Moran's I","DIC",'RMSE','year','residual'),
+                          cov_name = c('Intercept','Male','Female','1990','2000','2010','2015','Age 25-29','Age 30-34','Age 35-39','Age 40-44','Age 45-49','Age 50-54','Age 55-59','Age 60-64',metro_region_names, metro_names, region_names, 'Air quality','Water quality','Land quality',
                                        new_cov_names, 'Poverty','Isolation','College education',
-                                       'Foreign-born','Poverty','Isolation','College education','Foreign-born', 'Metro level',"Global Moran's I","DIC",'RMSE','Secular trend','Residual'),
-                          cov_sort = c(1:86))
+                                       'Foreign-born','Poverty','Isolation','College education','Foreign-born', 'Metro level',"Global Moran's I","Moran's I","DIC",'RMSE','Secular trend','Residual'))
+  cov_names[, cov_sort := 1:.N]
+  return(cov_names)
+  
 }
+
 
 
 logit <- function(x) {

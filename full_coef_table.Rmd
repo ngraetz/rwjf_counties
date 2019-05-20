@@ -1,0 +1,61 @@
+---
+title: "Tables testing"
+author: "Nick Graetz"
+output: pdf_document
+---
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# Load knitr package and settings
+library(knitr)
+library(data.table)
+library(ggplot2)
+library(formatR)
+library(kableExtra)
+options(scipen=999)
+#opts_chunk$set(fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE)
+#opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+knit_hooks$set(small.mar = function(before, options, envir) {
+    if (before)    par(mar=c(1,1,1,1)+.1)  # smaller margin on top and right
+})
+opts_chunk$set(small.mar=TRUE)
+```
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+sources <- fread("C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/covariate_sources.csv")
+landscape(kable(sources, booktabs = TRUE, format = 'latex', caption = '', col.names = c('', 'Source', 'Years', 'Interpolated')) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width=T, position = "center", font_size = 8) %>%
+   group_rows('Socioeconomic', 1, 4) %>%
+   group_rows('Healthcare', 5, 7) %>%
+   group_rows('Health behaviors and risk factors', 8, 10) %>%
+   group_rows('Population composition', 11, 13) %>%
+   column_spec(column = 1, width = "35em") %>%
+   column_spec(column = 2, width = "20em"))
+
+## Order names
+for(cause in c('allcause','drugs','cardio','lung','suicide')) {
+coefs <- fread(paste0('C:/Users/ngraetz/Desktop/march1_tables/', cause, '_25_64_coefficients.csv'), header = T)
+coefs[name=='DIC', cov_name := 'DIC']
+# coefs <- coefs[!(grep('agegrp', name))]
+# coefs <- coefs[!(grep('Intercept', name))]
+coefs[, name := NULL]
+coefs[, cause := NULL]
+setcolorder(coefs, 'cov_name')
+coefs[, ('6') := as.character(get('6'))]
+coefs[, ('7') := as.character(get('7'))]
+
+## Make formatted table
+t <- kable(coefs, format = 'latex', booktabs = TRUE, caption = paste0('County-level ', cause, ' mortality rate (2000, 2010, 2015)'), col.names = c('',names(coefs)[names(coefs)!='cov_name']), digits = 2, escape = FALSE) %>%
+   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 8) %>%
+   #add_footnote(c("Reference categories are Male, Large Central Metro, Pacific"), notation='alphabet') %>%
+   group_rows('', 1, 6) %>%
+   group_rows('Age group', 7, 14) %>%
+   group_rows('Metro', 15, 18) %>%
+   group_rows('Region', 19, 28) %>%
+   group_rows('Contextual', 29, 41) %>%
+   group_rows('', 42, 44) %>%
+   column_spec(column = 1, width = "15em")
+print(t)
+}
+```
+
+

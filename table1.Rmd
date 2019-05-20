@@ -1,0 +1,140 @@
+---
+title: "Tables testing"
+author: "Nick Graetz"
+output: pdf_document
+
+---
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# Load knitr package and settings
+library(knitr)
+library(data.table)
+library(ggplot2)
+library(formatR)
+library(kableExtra)
+options(scipen=999)
+#opts_chunk$set(fig.align='center', tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=40), warning=FALSE,message=FALSE)
+#opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+knit_hooks$set(small.mar = function(before, options, envir) {
+    if (before)    par(mar=c(1,1,1,1)+.1)  # smaller margin on top and right
+})
+opts_chunk$set(small.mar=TRUE)
+```
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+## Order names
+repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
+source(paste0(repo, 'functions.R'))
+source(paste0(repo, 'functions_shapley.R'))
+cov_names <- get_clean_cov_names()
+setnames(cov_names,'fe','name')
+
+table1 <- fread('C:/Users/ngraetz/Desktop/march23_tables/table1.csv')
+# for(v in grep('_2015',names(table1),value = T)) {
+#   message(v)
+#   print(summary(table1[, get(v)]))
+# }
+# vars_to_scale <- c('chr_diabetes_monitoring','chr_mammography','perc_black','perc_hispanic','percent_transfers')
+# for(v in vars_to_scale) {
+#   vars <- grep(v,names(table1),value=T)
+#   for(var in vars) table1[, (var) := get(var) * 100]
+# }
+# mdvars <- grep('mds',names(table1),value=T)
+# for(var in mdvars) table1[, (var) := round(exp(get(var)),1)]
+# vars <- grep('nmx',names(table1),value=T)
+# for(var in vars) table1[, (var) := as.character(round(get(var) * 100000))]
+
+vars_to_scale <- c('chr_diabetes_monitoring','chr_mammography','perc_black','perc_hispanic','percent_transfers')
+for(v in vars_to_scale) {
+  table1[variable==v, value := value * 100]
+}
+table1[variable=='log_mds_pc', value := round(exp(value),1)]
+table1[variable=='nmx', value := value * 100000]
+
+table1[, V1 := NULL]
+table1[, total_pop := NULL]
+all_vars <- unique(table1[, variable])
+table1 <- dcast(table1, metro_region_2015 ~ variable + year, value.var='value')
+for(v in all_vars) table1[, (paste0(v, '_change')) := get(paste0(v, '_2015')) - get(paste0(v, '_2000'))]
+setnames(table1, 'metro_region_2015', 'metro_region')
+
+for(v in grep('_2000|_2015|_change', names(table1), value = T)) {
+  if(!grepl('nmx',v)) { 
+  table1[, (v) := as.character(round(get(v),1))]
+  table1[!grep('[.]',get(v)), (v) := paste0(get(v), '.0')]
+  table1[nchar(get(v))==3, (v) := paste0(' ',get(v))]
+  }
+}
+table_names <- unique(gsub('_2000|_2015|_change', '', names(table1)))
+cov_names <- cov_names[name %in% table_names, ]
+col_order <- c()
+for(v in cov_names[, name]) {
+  col_order <- c(col_order, grep(v, names(table1), value = T))
+}
+#table1[, metro_region := paste0(metroname, '_', regionname)]
+setcolorder(table1, c('metro_region','nmx_2000','nmx_2015','nmx_change',col_order))
+table1 <- table1[order(metro_region)]
+table1[, metro_region := gsub('Lg central metro_|Lg fringe metro_|Md/Sm metro_|Nonmetro_', '', metro_region)]
+setnames(table1, grep('_2000', names(table1), value=T), rep('2000',14))
+setnames(table1, grep('_2015', names(table1), value=T), rep('2015',14))
+#setnames(table1, grep('_change', names(table1), value=T), rep('Change',14))
+for(v in grep('_change',names(table1),value=T)) table1[, (v) := NULL]
+table1[, V1 := NULL]
+table1[, metroname := NULL]
+table1[, regionname := NULL]
+setnames(table1, 'metro_region', '')
+
+landscape(kable(table1, align=rep('r',29), format = 'latex', booktabs = TRUE, caption = 'Change in ASCDR (per 100,000) and contextual covariates, 2000-2015', digits = 1,
+                escape=F) %>%
+   kable_styling(latex_options = c("striped","scale_down"), font_size = 7) %>%
+   add_header_above(c(" " = 1, 'ASCDR' = 2, 'College' = 2, 'Poverty' = 2, 'Transfers' = 2,
+                      'Manuf' = 2, 'Black' = 2, 'Hispanic' = 2, 'Foreign' = 2,
+                      'Obesity' = 2, 'Drinking' = 2, 'Smoking' = 2, 'MDs/pc' = 2,
+                      'Mammog' = 2, 'Diabetes' = 2)) %>%
+   group_rows("Large metro", 1, 10) %>%
+   group_rows("Fringe metro", 11, 20) %>%
+   group_rows("Small metro", 21, 30) %>%
+   group_rows("Nonmetro", 31, 40) %>%
+   column_spec(column = 1, width = "10em"))
+# landscape(kable(table1, align=rep('r',29), format = 'latex', booktabs = TRUE, caption = 'Change in ASCDR (per 100,000) and contextual covariates, 2000-2015', digits = 1, escape=F) %>%
+#    kable_styling(font_size = 7))
+# t1 <- table1[, c(1,2:13)]
+# t2 <- table1[, c(1,14:25)]
+# t3 <- table1[, c(1,26:37)]
+# t4 <- table1[, c(1,38:43)]
+
+## Make formatted table WITH CHANGE IN LEVELS
+# kable(t1, format = 'latex', booktabs = TRUE, caption = 'Change in ASCDR (per 100,000) and contextual covariates, 2000-2015', digits = 1) %>%
+#    kable_styling(latex_options = c("striped","scale_down","condensed"), full_width = F, font_size = 7) %>%
+#    add_header_above(c(" " = 1, 'ASCDR' = 3, 'HH income' = 3, 'College' = 3, 'Transfers' = 3)) %>%
+#    group_rows("Large metro", 1, 10) %>%
+#    group_rows("Fringe metro", 11, 20) %>%
+#    group_rows("Small metro", 21, 30) %>%
+#    group_rows("Nonmetro", 31, 40) %>%
+#    column_spec(column = 1, width = "10em")
+# kable(t2, format = 'latex', booktabs = TRUE, caption = 'Change in ASCDR (per 100,000) and contextual covariates, 2000-2015', digits = 1) %>%
+#    kable_styling(latex_options = c("striped","scale_down"), full_width = F, font_size = 7) %>%
+#    add_header_above(c(" " = 1, 'Manufacturing' = 3, 'Percent Black' = 3, 'Percent Hispanic' = 3, 'Percent Foreign born' = 3)) %>%
+#    group_rows("Large metro", 1, 10) %>%
+#    group_rows("Fringe metro", 11, 20) %>%
+#    group_rows("Small metro", 21, 30) %>%
+#    group_rows("Nonmetro", 31, 40) %>%
+#    column_spec(column = 1, width = "10em")
+# kable(t3, format = 'latex', booktabs = TRUE, caption = 'Change in ASCDR (per 100,000) and contextual covariates, 2000-2015', digits = 1) %>%
+#    kable_styling(latex_options = c("striped","scale_down"), full_width = F, font_size = 7) %>%
+#    add_header_above(c(" " = 1, 'Obesity' = 3, 'Heavy drinking' = 3, 'Smoking' = 3, 'MDs/pc' = 3)) %>%
+#    group_rows("Large metro", 1, 10) %>%
+#    group_rows("Fringe metro", 11, 20) %>%
+#    group_rows("Small metro", 21, 30) %>%
+#    group_rows("Nonmetro", 31, 40) %>%
+#    column_spec(column = 1, width = "10em")
+# kable(t4, format = 'latex', booktabs = TRUE, caption = 'Change in ASCDR (per 100,000) and contextual covariates, 2000-2015', digits = 1) %>%
+#    kable_styling(latex_options = c("striped","scale_down"), full_width = T, font_size = 7) %>%
+#    add_header_above(c(" " = 1, 'Mammography' = 3, 'Diabetes monitoring' = 3)) %>%
+#    group_rows("Large metro", 1, 10) %>%
+#    group_rows("Fringe metro", 11, 20) %>%
+#    group_rows("Small metro", 21, 30) %>%
+#    group_rows("Nonmetro", 31, 40) %>%
+#    column_spec(column = 1, width = "10em")
+```
+

@@ -25,8 +25,9 @@ for(v in as.character(2001:2016)) d[, (v) := as.numeric(get(v))]
 d[, `2000` := `2001`]
 
 per <- fread("C:/Users/ngraetz/Downloads/CAINC35/CAINC35__ALL_AREAS_2001_2017.csv", header = TRUE, fill=T)
-per[, fips := as.character(GeoFIPS)]
-per[nchar(fips)==4, fips := paste0('0',fips)]
+# per[, fips := as.character(GeoFIPS)]
+# per[nchar(fips)==4, fips := paste0('0',fips)]
+per[, fips := substr(GeoFIPS, 4, 8)]
 for(v in as.character(2001:2016)) per[, (v) := as.numeric(get(v))]
 per[, `2000` := `2001`]
 
@@ -75,11 +76,11 @@ per[, value := as.numeric(value)]
 ## This one is doubled under two headings, but since we aren't using it for anything just drop.
 per <- per[Description != ' Employer contributions for government social insurance', ]
 per <- dcast(per, fips + year ~ Description, value.var = 'value')
-d <- merge(d, per[, c('fips','year',"   Social Security benefits")], by=c('fips','year'))
+d <- merge(d, per[, c('fips','year',"Social Security benefits", "Medical benefits")], by=c('fips','year'))
 
 ## Calculate indicators of interest.
 ## Total personal income = (Earnings by place of work - contributions for government social insurance + adjustment for residence) + dividends/interest/rent + transfers.
-d[, percent_transfers := (`Plus: Personal current transfer receipts` - get("   Social Security benefits")) / `Personal income (thousands of dollars)`]
+d[, percent_transfers := (`Plus: Personal current transfer receipts` - get("Social Security benefits") - get("Medical benefits" )) / `Personal income (thousands of dollars)`]
 
 #d[, percent_wage_salary_employment := `Wage and salary employment` / `Total employment`]
 
@@ -90,14 +91,14 @@ d[, total_employees := `Total employment`]
 ## Save.
 setnames(d, 'percent_transfers', 'percent_transfers_no_ss')
 d <- d[, c('fips','year','percent_transfers_no_ss')]
-write.csv(d, paste0(repo, 'covariate_clean_data/bea_covs_v2.csv'), row.names=FALSE)
+write.csv(d, paste0(repo, 'covariate_clean_data/bea_covs_v3.csv'), row.names=FALSE)
 
 d <- fread('C:/Users/ngraetz/Documents/Penn/papers/rwjf/covariates/bea_covs.csv')
 #d <- dcast(d, fips ~ year, value.var = 'percent_transfers')
 #d[, transfer_change := `2016` - `1990`]
-v <- 'percent_transfers'
+v <- 'percent_transfers_no_ss'
 #source("C:/Users/ngraetz/Documents/repos/spatial_demography_2018/functions.R")
-counties <- readOGR("C:/Users/ngraetz/Downloads/cb_2016_us_county_20m", 'cb_2016_us_county_20m')
+counties <- readOGR("C:/Users/ngraetz/Documents/repos/rwjf_counties/cb_2016_us_county_20m", 'cb_2016_us_county_20m')
 counties@data <- transform(counties@data, fips = paste0(STATEFP, COUNTYFP)) # create unique county 5-digit fips
 counties <- counties[counties@data$fips != "02016", ] # Drop Aleutians West, AK - screws up plots 
 counties <- counties[counties$STATEFP=='51', ]
@@ -107,7 +108,7 @@ counties$state <- as.numeric(counties$STATEFP)
 states <- gUnaryUnion(counties, id = counties@data$state)
 background.dt.states <- as.data.table(fortify(states, region = 'state'))
 
-mort <- fread('C:/Users/ngraetz/Documents/repos/rwjf/bea_county_template.csv')
+mort <- fread('C:/Users/ngraetz/Documents/repos/rwjf_counties/covariate_code/bea_county_template.csv')
 mort[is.na(bea_fips), bea_fips := fips]
 mort[, year := 1990]
 mort[, bea_fips := as.character(bea_fips)]
