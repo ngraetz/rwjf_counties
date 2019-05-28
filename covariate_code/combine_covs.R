@@ -58,7 +58,7 @@ pop[, bea_fips := as.character(bea_fips)]
 pop[nchar(bea_fips)==4, bea_fips := paste0('0',bea_fips)]
 
 ## Merge all other covariates
-for(c in c('bea_covs','bea_covs_v2','bls_laus_covs','factfinder_edu','factfinder_fb','saipe_pov','ahrf_covs','census_acs_migration','factfinder_manufacturing','ihme_interpolated')) {
+for(c in c('bea_covs','bea_covs_v2','bea_covs_v3','bls_laus_covs','factfinder_edu','factfinder_fb','saipe_pov','ahrf_covs','census_acs_migration','factfinder_manufacturing','ihme_interpolated')) {
 message(c)
 cov <- fread(paste0(cov_dir,c,'.csv'))
 cov[, fips := as.character(fips)]
@@ -68,7 +68,7 @@ merge_vars <- c('fips','year','sex','race')
 if(!('race' %in% names(cov))) merge_vars <- merge_vars[merge_vars!='race']
 if(!('sex' %in% names(cov))) merge_vars <- merge_vars[merge_vars!='sex']
 ## Handle Virginia FIPS in BEA
-if(c=='bea_covs' | c=='bea_covs_v2') {
+if(c=='bea_covs' | c=='bea_covs_v2' | c=='bea_covs_v3') {
   cov[, bea_fips := fips]
   cov[, fips := NULL]
   merge_vars <- c('bea_fips','year')
@@ -91,6 +91,8 @@ pop[, manufacturing := manufacturing * 100]
 pop[, college := college * 100]
 pop[, less_12 := less_12 * 100]
 pop[, percent_transfers := percent_transfers * 100]
+pop[, percent_transfers_no_ss := percent_transfers_no_ss * 100]
+pop[, percent_transfers_no_ss_medical := percent_transfers_no_ss_medical * 100]
 pop[, perc_25_64 := perc_25_64 * 100]
 pop[, net_mig_per1000 := (net_mig / total_county_pop) * 1000]
 pop[, in_mig_per1000 := (in_mig / total_county_pop) * 1000]
@@ -106,9 +108,8 @@ pop[!is.na(perc_labor) & perc_labor >= 100, perc_labor := 100]
 #               'net_mig_per1000','in_mig_per1000','out_mig_per1000')
 all_covs <- c("as_diabetes_prev","pa_prev","obesity_prev","as_heavy_drinking_prev","current_smoker_prev")
 all_covs <- c("as_diabetes_prev","chr_obesity_prev","obesity_prev")
-all_covs <- c('percent_transfers_no_ss','percent_transfers','net_mig_per1000','perc_25_64')
+all_covs <- c('percent_transfers_no_ss_medical','percent_transfers_no_ss','net_mig_per1000','perc_25_64')
 pop_map <- pop[, lapply(.SD, weighted.mean, w=total_county_pop, na.rm=TRUE), .SDcols=c(all_covs), by=c('fips','year')]
-pop_map[, percent_transfers_no_ss := percent_transfers_no_ss * 100]
 if(make_maps==TRUE) {
 pdf(paste0('C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/covariates/prep_plots/transfer_maps.pdf'), height=6, width=9)
 for(v in all_covs) {
@@ -126,7 +127,12 @@ for(v in all_covs) {
   if(v=='percent_transfers_no_ss') {
     cov_name <- 'BLS percent of total personal income as transfers (excluding SS, Medicare)'
     lower <- 0
-    upper <- 25
+    upper <- 20
+  }
+  if(v=='percent_transfers_no_ss_medical') {
+    cov_name <- 'BLS percent of total personal income as transfers (excluding SS, Medicare, Medicaid)'
+    lower <- 0
+    upper <- 10
   }
   if(v=='percent_transfers') {
     cov_name <- 'BLS percent of total personal income as transfers (including SS, Medicare)'
@@ -210,7 +216,7 @@ trends <- trends[race==0 & sex==1 & year %in% c(1990,2000,2010,2015), lapply(.SD
 
 ## Save.
 pop[, percent_transfers := NULL]
-pop[, percent_transfers := percent_transfers_no_ss]
+pop[, percent_transfers := percent_transfers_no_ss_medical]
 saveRDS(pop, paste0(repo, 'covariate_clean_data/combined_covs_v3.RDS'))
 
 ## Make covariance matrix heat map

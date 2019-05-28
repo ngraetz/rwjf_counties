@@ -33,7 +33,7 @@ landscape(kable(sources, booktabs = TRUE, format = 'latex', caption = '', col.na
 
 ## Order names
 for(cause in c('allcause','drugs','cardio','lung','suicide')) {
-coefs <- fread(paste0('C:/Users/ngraetz/Desktop/march1_tables/', cause, '_25_64_coefficients.csv'), header = T)
+coefs <- fread(paste0('C:/Users/ngraetz/Desktop/may22_tables/', cause, '_25_64_coefficients.csv'), header = T)
 coefs[name=='DIC', cov_name := 'DIC']
 # coefs <- coefs[!(grep('agegrp', name))]
 # coefs <- coefs[!(grep('Intercept', name))]
@@ -41,7 +41,7 @@ coefs[, name := NULL]
 coefs[, cause := NULL]
 setcolorder(coefs, 'cov_name')
 coefs[, ('6') := as.character(get('6'))]
-coefs[, ('7') := as.character(get('7'))]
+# coefs[, ('7') := as.character(get('7'))]
 
 ## Make formatted table
 t <- kable(coefs, format = 'latex', booktabs = TRUE, caption = paste0('County-level ', cause, ' mortality rate (2000, 2010, 2015)'), col.names = c('',names(coefs)[names(coefs)!='cov_name']), digits = 2, escape = FALSE) %>%
@@ -51,8 +51,8 @@ t <- kable(coefs, format = 'latex', booktabs = TRUE, caption = paste0('County-le
    group_rows('Age group', 7, 14) %>%
    group_rows('Metro', 15, 18) %>%
    group_rows('Region', 19, 28) %>%
-   group_rows('Contextual', 29, 41) %>%
-   group_rows('', 42, 44) %>%
+   group_rows('Contextual', 29, 43) %>%
+   group_rows('', 44, 46) %>%
    column_spec(column = 1, width = "15em")
 print(t)
 }

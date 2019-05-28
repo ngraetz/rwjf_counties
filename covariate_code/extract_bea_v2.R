@@ -89,8 +89,8 @@ d[, income_per_capita := `Per capita personal income (dollars) 4/`]
 d[, total_employees := `Total employment`]
 
 ## Save.
-setnames(d, 'percent_transfers', 'percent_transfers_no_ss')
-d <- d[, c('fips','year','percent_transfers_no_ss')]
+setnames(d, 'percent_transfers', 'percent_transfers_no_ss_medical')
+d <- d[, c('fips','year','percent_transfers_no_ss_medical')]
 write.csv(d, paste0(repo, 'covariate_clean_data/bea_covs_v3.csv'), row.names=FALSE)
 
 d <- fread('C:/Users/ngraetz/Documents/Penn/papers/rwjf/covariates/bea_covs.csv')
