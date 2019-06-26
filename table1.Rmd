@@ -29,7 +29,7 @@ source(paste0(repo, 'functions_shapley.R'))
 cov_names <- get_clean_cov_names()
 setnames(cov_names,'fe','name')
 
-table1 <- fread('C:/Users/ngraetz/Desktop/march23_tables/table1.csv')
+table1 <- fread('C:/Users/ngraetz/Desktop/may22_tables/table1.csv')
 # for(v in grep('_2015',names(table1),value = T)) {
 #   message(v)
 #   print(summary(table1[, get(v)]))
@@ -84,18 +84,30 @@ table1[, metroname := NULL]
 table1[, regionname := NULL]
 setnames(table1, 'metro_region', '')
 
-landscape(kable(table1, align=rep('r',29), format = 'latex', booktabs = TRUE, caption = 'Change in ASCDR (per 100,000) and contextual covariates, 2000-2015', digits = 1,
+landscape(kable(table1[,c(1,2:15)], align=rep('r',15), format = 'latex', booktabs = TRUE, longtable=T, caption = '', digits = 1,
                 escape=F) %>%
-   kable_styling(latex_options = c("striped","scale_down"), font_size = 7) %>%
-   add_header_above(c(" " = 1, 'ASCDR' = 2, 'College' = 2, 'Poverty' = 2, 'Transfers' = 2,
-                      'Manuf' = 2, 'Black' = 2, 'Hispanic' = 2, 'Foreign' = 2,
-                      'Obesity' = 2, 'Drinking' = 2, 'Smoking' = 2, 'MDs/pc' = 2,
-                      'Mammog' = 2, 'Diabetes' = 2)) %>%
+   kable_styling(font_size = 7) %>%
+   add_header_above(c(" " = 1, 'ASCDR' = 2,
+                      'Black' = 2, 'Hispanic' = 2, 'Ages\n25-64' = 2, 'Foreign-\nborn' = 2,
+                      'College' = 2, 'Poverty' = 2)) %>%
    group_rows("Large metro", 1, 10) %>%
    group_rows("Fringe metro", 11, 20) %>%
    group_rows("Small metro", 21, 30) %>%
    group_rows("Nonmetro", 31, 40) %>%
-   column_spec(column = 1, width = "10em"))
+   column_spec(column = 1, width = "12em") %>%
+   column_spec(column = 2:15, width = "3em"))
+landscape(kable(table1[,c(1,16:29)], align=rep('r',15), format = 'latex', booktabs = TRUE, longtable=T, caption = '', digits = 1,
+                escape=F) %>%
+   kable_styling(font_size = 7) %>%
+   add_header_above(c(" " = 1, 'Transfers' = 2, 'Manuf' = 2,
+                      'MDs' = 2, 'Mammo' = 2, 'Diab' = 2,
+                      'Obesity' = 2, 'Smoking' = 2)) %>%
+   group_rows("Large metro", 1, 10) %>%
+   group_rows("Fringe metro", 11, 20) %>%
+   group_rows("Small metro", 21, 30) %>%
+   group_rows("Nonmetro", 31, 40) %>%
+   column_spec(column = 1, width = "12em") %>%
+   column_spec(column = 2:15, width = "3em"))
 # landscape(kable(table1, align=rep('r',29), format = 'latex', booktabs = TRUE, caption = 'Change in ASCDR (per 100,000) and contextual covariates, 2000-2015', digits = 1, escape=F) %>%
 #    kable_styling(font_size = 7))
 # t1 <- table1[, c(1,2:13)]

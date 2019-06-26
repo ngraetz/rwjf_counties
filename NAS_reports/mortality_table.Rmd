@@ -1,0 +1,64 @@
+---
+title: "NAS Report Tables"
+author: "Nick Graetz"
+output: pdf_document
+---
+
+```{r, echo=FALSE, results='asis', eval=TRUE, warning=FALSE, message=FALSE}
+library(Hmisc)
+library(knitr)
+library(data.table)
+library(kableExtra)
+t <- fread(paste0("C:/Users/ngraetz/Downloads/table (1).csv"))
+t[, cause_name := capitalize(cause_name)]
+t <- t[cause_name!='Not coded', ]
+t[cause_name=='Drug poisoning (accidental, intentional, homicide, and unknown intent)', cause_name := 'Drug poisoning']
+t[cause_name=="Suicide (excludes suicide by drugs and alcohol)", cause_name := 'Suicide']
+t[cause_name=="Hiv/aids", cause_name := 'HIV-AIDS']
+(t[race_eth=='Non-Hispanic White' & sex==1 & agegrp=='25-44' & metro=='Lg central metro', `2015`])
+for(v in c('1990','1994','1997','2000','2003','2006','2009','2012','2015',
+            'cont_change_1990_2000','cont_change_2000_2015',
+           'change_1990_2000','change_2000_2015')) {
+  t[, (v) := as.character(round(get(v),2))]
+  ## After decimal
+  t[, temp := tstrsplit(get(v),'[.]',keep=2)]
+  t[is.na(temp), (v) := paste0(get(v),'00')]
+  t[nchar(temp)==1, (v) := paste0(get(v),'0')]
+  ## Before decimal (3 chars)
+  t[, temp := tstrsplit(get(v),'[.]',keep=1)]
+  t[nchar(temp)==1, (v) := paste0(get(v),'  ')]
+  t[nchar(temp)==2, (v) := paste0(get(v),' ')]
+  t[, temp := NULL]
+           }
+for(y in c('cont_change_1990_2000','cont_change_2000_2015',
+           'change_1990_2000','change_2000_2015')) t[, (y) := ifelse(as.numeric(get(y))>0,
+                                                                     cell_spec(get(y), format='latex', bold=T),
+                                                                     cell_spec(get(y), format='latex', bold=F))]
+for(r in c('Non-Hispanic White','Non-Hispanic Black','Hispanic')) {
+  for(s in c(1,2)) {
+    for(a in c('25-44','45-64')) {
+      for(m in c("Lg central metro","Lg fringe metro","Md/Sm metro","Nonmetro" )) {
+      message(paste(r,s,a,m,sep=' '))
+  d <- copy(t)
+  d <- d[order(cause)]
+  d <- d[race_eth == r & sex == s & agegrp == a & metro == m, ]
+  vars <- c('cause_name','1990','1994','1997','2000','2003','2006','2009','2012','2015',
+            'cont_change_1990_2000','cont_change_2000_2015',
+           'change_1990_2000','change_2000_2015')
+  d <- d[, vars, with=F]
+  setnames(d, names(d), paste0('y',names(d)))
+  sex_name <- ifelse(s==1,'male','female')
+  table <- landscape(kable(d, caption = paste0(r, ' ', sex_name,', ages ', a, ': ', m), format = 'latex', booktabs=TRUE, col.names = c('Cause of death','1990-93','1994-96','1997-99','2000-02','2003-05','2006-08','2009-11','2012-14','2015-17','1990-93 to 2000-02','2000-02 to 2015-16','1990-93 to 2000-02','2000-02 to 2015-16'), align=c('l',rep('r',13)), longtable=TRUE, linesep = "", digits = 0, escape = FALSE) %>%
+   kable_styling(full_width = F, position = "right", font_size = 7.5) %>%
+     add_header_above(c(" " = 1, "Contribution (% of all-cause ASCDR)" = 9, "Change in\n% contribution" = 2, "Change in ASCDR per 100,000" = 2)) %>%
+   column_spec(column = 1, width = "12em") %>%
+     column_spec(column = 2:10, width = "4em") %>%
+     column_spec(column = c(11,13), width = "4em") %>%
+     column_spec(column = c(12,14), width = "4em"))
+  print(table)
+    }
+    }
+  }
+}
+```
+

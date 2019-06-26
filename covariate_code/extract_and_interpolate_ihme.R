@@ -68,6 +68,8 @@ all[, county := NULL]
 
 ## Merge CHR variables to compare
 chr <- fread("C:/Users/ngraetz/Documents/repos/rwjf_counties/covariate_clean_data/chr_covs.csv")
+chr[, fips := as.character(fips)]
+chr[nchar(fips)==4, fips := paste0('0',fips)]
 all <- merge(all, chr, all.x=TRUE, by=c('fips','year'))
 
 ## Interpolate forward and backward assuming growth rate is constant.

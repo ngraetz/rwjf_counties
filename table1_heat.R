@@ -4,7 +4,7 @@ source(paste0(repo, 'functions_shapley.R'))
 cov_names <- get_clean_cov_names()
 setnames(cov_names,'fe','cov')
 
-t <- fread('C:/Users/ngraetz/Desktop/march23_tables/table1_sd.csv')
+t <- fread('C:/Users/ngraetz/Desktop/may22_tables/table1_sd.csv')
 #t[, metro_region := paste0(metroname, ' ', regionname)]
 setnames(t, 'metro_region_2015', 'metro_region')
 t[, V1 := NULL]
@@ -25,7 +25,7 @@ ordered_covs <- ordered_covs[order(cov_sort)]
 ordered_covs <- ordered_covs[, cov_name]
 t_capped[, cov_name := factor(cov_name, levels = ordered_covs)]
 
-t <- fread('C:/Users/ngraetz/Desktop/march23_tables/table1.csv')
+t <- fread('C:/Users/ngraetz/Desktop/may22_tables/table1.csv')
 #t[, metro_region := paste0(metroname, ' ', regionname)]
 setnames(t, 'metro_region_2015', 'metro_region')
 t[, V1 := NULL]

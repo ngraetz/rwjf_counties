@@ -21,41 +21,137 @@ opts_chunk$set(small.mar=TRUE)
 ```
 
 ```{r, echo=FALSE, eval=TRUE, results='asis'}
+repo <- 'C:/Users/ngraetz/Documents/repos/rwjf_counties/'
+source(paste0(repo, 'functions.R'))
+source(paste0(repo, 'functions_shapley.R'))
+cov_names <- get_clean_cov_names()
+setnames(cov_names,'fe','cov')
+
+t <- fread('C:/Users/ngraetz/Desktop/may22_tables/table1_sd.csv')
+#t[, metro_region := paste0(metroname, ' ', regionname)]
+setnames(t, 'metro_region_2015', 'metro_region')
+t[, V1 := NULL]
+t[, total_pop := NULL]
+all_vars <- unique(t[, variable])
+t <- dcast(t, metro_region ~ variable + year, value.var='value')
+for(v in all_vars) t[, (paste0(v, '_change')) := get(paste0(v, '_2015')) - get(paste0(v, '_2000'))]
+t <- t[, c('metro_region',grep('_change',names(t),value=T)), with=F]
+t <- melt(t, id.vars = c('metro_region'), variable.name = 'cov', value.name = 'change')
+t <- t[!(cov %in% c('nmx_change')), ]
+t[, cov := gsub('_change', '', cov)]
+t <- merge(t, cov_names, by='cov')
+t_capped <- copy(t)
+t_capped[change >= 1, change := 1]
+t_capped[change <= -1, change := -1]
+ordered_covs <- unique(t_capped[, c('cov_name','cov_sort')])
+ordered_covs <- ordered_covs[order(cov_sort)]
+ordered_covs <- ordered_covs[, cov_name]
+t_capped[, cov_name := factor(cov_name, levels = ordered_covs)]
+
+t <- fread('C:/Users/ngraetz/Desktop/may22_tables/table1.csv')
+#t[, metro_region := paste0(metroname, ' ', regionname)]
+setnames(t, 'metro_region_2015', 'metro_region')
+t[, V1 := NULL]
+t[, total_pop := NULL]
+all_vars <- unique(t[, variable])
+t[variable=='log_mds_pc', value := round(exp(value),1)]
+t <- dcast(t, metro_region ~ variable + year, value.var='value')
+for(v in all_vars) t[, (paste0(v, '_change')) := get(paste0(v, '_2015')) - get(paste0(v, '_2000'))]
+t <- t[, c('metro_region',grep('_change',names(t),value=T)), with=F]
+t <- melt(t, id.vars = c('metro_region'), variable.name = 'cov', value.name = 'change')
+t <- t[!(cov %in% c('nmx_change')), ]
+t[, cov := gsub('_change', '', cov)]
+vars_to_scale <- c('chr_diabetes_monitoring','chr_mammography','perc_black','perc_hispanic','percent_transfers')
+for(v in vars_to_scale) t[cov==v, change := change * 100]
+t <- merge(t, cov_names, by='cov')
+t[, cov_name := factor(cov_name, levels = ordered_covs)]
+t[, metro_region := gsub('_',' ',metro_region)]
+
+t <- dcast(t, metro_region ~ cov_name, value.var='change')
+t[, region := gsub('Lg central metro |Lg fringe metro |Md/Sm metro |Nonmetro ','',metro_region)]
+t[, metro_region := NULL]
+setcolorder(t, 'region')
+landscape(kable(t, format = 'latex', booktabs=TRUE, longtable=TRUE, col.names = c('','Black','Hispanic','Ages 25-64','Foreign-born','College','Poverty','Transfers','Manuf','MDs','Mammo','Diab','Obesity','Smoking'), linesep = "", digits = 1, escape = TRUE) %>%
+   kable_styling(full_width = F, position = "right", font_size = 7.5) %>%
+   group_rows('Lg central metro', 1, 10) %>%
+   group_rows('Lg fringe metro', 11, 20) %>%
+   group_rows('Md/Sm metro', 21, 30) %>%
+   group_rows('Nonmetro', 31, 40) %>%
+   column_spec(column = 1, width = "10em"))
+```
+
+```{r, echo=FALSE, eval=TRUE, results='asis'}
 sources <- fread("C:/Users/ngraetz/Dropbox/Penn/papers/rwjf/covariate_sources.csv")
-landscape(kable(sources, booktabs = TRUE, format = 'latex', caption = '', col.names = c('', 'Source', 'Years', 'Interpolated')) %>%
-   kable_styling(latex_options = c("striped","scale_down"), full_width=T, position = "center", font_size = 8) %>%
-   group_rows('Socioeconomic', 1, 4) %>%
-   group_rows('Healthcare', 5, 7) %>%
-   group_rows('Health behaviors and risk factors', 8, 10) %>%
-   group_rows('Population composition', 11, 13) %>%
+landscape(kable(sources, booktabs = TRUE, format = 'latex', longtable=TRUE, caption = '', col.names = c('', 'Source', 'Years', 'Interpolated')) %>%
+   kable_styling(full_width = F, position = "right", font_size = 8) %>%
+   group_rows('Population composition', 1, 4) %>%
+   group_rows('Socioeconomic', 5, 8) %>%
+   group_rows('Healthcare', 9, 11) %>%
+   group_rows('Health behaviors and risk factors', 12, 13) %>%
    column_spec(column = 1, width = "35em") %>%
    column_spec(column = 2, width = "20em"))
 
 ## Order names
-for(cause in c('allcause','drugs','cardio','lung','suicide')) {
+# for(cause in c('allcause','drugs','cardio','lung','suicide')) {
+cause <- 'allcause'
 coefs <- fread(paste0('C:/Users/ngraetz/Desktop/may22_tables/', cause, '_25_64_coefficients.csv'), header = T)
-coefs[name=='DIC', cov_name := 'DIC']
+setnames(coefs, 'name', 'fe')
+cov_names <- get_clean_cov_names()
+coefs <- merge(coefs, cov_names[, c('fe','cov_sort'), with=F], by='fe')
+coefs <- coefs[order(cov_sort)]
+coefs[fe=='DIC', cov_name := 'DIC']
 # coefs <- coefs[!(grep('agegrp', name))]
 # coefs <- coefs[!(grep('Intercept', name))]
 coefs[, name := NULL]
 coefs[, cause := NULL]
-setcolorder(coefs, 'cov_name')
+setcolorder(coefs, c('cov_name','1','5','2','3','4','6','7'))
 coefs[, ('6') := as.character(get('6'))]
+coefs <- coefs[, c('cov_name','1','5','2','3','4','6','7'), with=F]
 # coefs[, ('7') := as.character(get('7'))]
+for(v in c('1','2','3','4','5','6','7')) coefs[nchar(get(v))==3, (v) := paste0(get(v),'0')]
+for(v in c('1','2','3','4','5','6','7')) coefs[nchar(get(v))==1 & get(v) != '-', (v) := paste0(get(v),'.00')]
 
 ## Make formatted table
-t <- kable(coefs, format = 'latex', booktabs = TRUE, caption = paste0('County-level ', cause, ' mortality rate (2000, 2010, 2015)'), col.names = c('',names(coefs)[names(coefs)!='cov_name']), digits = 2, escape = FALSE) %>%
-   kable_styling(latex_options = c("striped","scale_down"), full_width = T, position = "center", font_size = 8) %>%
+t <- kable(coefs, format = 'latex', booktabs = TRUE, longtable=TRUE, caption = paste0('County-level ', cause, ' mortality rate (2000, 2010, 2015)'), col.names = c('','1','2','3','4','5','6','7'), digits = 2, escape = FALSE, align=c('l',rep('r',7))) %>%
+   kable_styling(full_width = F, position = "right", font_size = 8) %>%
    #add_footnote(c("Reference categories are Male, Large Central Metro, Pacific"), notation='alphabet') %>%
    group_rows('', 1, 6) %>%
    group_rows('Age group', 7, 14) %>%
    group_rows('Metro', 15, 18) %>%
    group_rows('Region', 19, 28) %>%
-   group_rows('Contextual', 29, 43) %>%
-   group_rows('', 44, 46) %>%
+   group_rows('Contextual', 29, 41) %>%
+   group_rows('', 42, 44) %>%
    column_spec(column = 1, width = "15em")
 print(t)
-}
+# }
 ```
 
+```{r, echo=FALSE, eval=TRUE, results='asis'}
+dc <- fread(paste0("C:/Users/ngraetz/Desktop/may22_tables/",cause,"_25_64_decomp.csv"))
+dc[, V1 := NULL]
+dc[fe=='residual', cov_name := 'Residual']
+dc[fe=='year', cov_name := 'Year']
+dc <- dc[, c('metro_region','contribution_mort','cov_name')]
+#dc <- merge(dc, cov_names)
+#ordered_covs_dc <- c(ordered_covs, 'Year', 'Residual')
+ordered_covs_dc <- cov_names[order(cov_sort)]
+ordered_covs_dc <- unique(ordered_covs_dc$cov_name)
+dc[, cov_name := factor(cov_name, levels = c(ordered_covs_dc,'Year'))]
+dc_capped <- copy(dc)
+ifelse(cause=='allcause', lim <- 30, lim <- 10)
+dc_capped[contribution_mort >= lim, contribution_mort := lim]
+dc_capped[contribution_mort <= -lim, contribution_mort := -lim]
 
+dc <- dcast(dc, metro_region ~ cov_name, value.var='contribution_mort')
+dc[, region := gsub('Lg central metro |Lg fringe metro |Md/Sm metro |Nonmetro ','',metro_region)]
+dc[, metro_region := NULL]
+setcolorder(dc, 'region')
+landscape(kable(dc, format = 'latex', booktabs=TRUE, longtable=TRUE, col.names = c('','Black','Hispanic','Ages 25-64','Foreign-born','College','Poverty','Transfers','Manuf','MDs','Mammo','Diab','Obesity','Smoking','Residual','Year'), linesep = "", digits = 1, escape = TRUE) %>%
+   kable_styling(full_width = F, position = "right", font_size = 7.5) %>%
+   group_rows('Lg central metro', 1, 10) %>%
+   group_rows('Lg fringe metro', 11, 20) %>%
+   group_rows('Md/Sm metro', 21, 30) %>%
+   group_rows('Nonmetro', 31, 40) %>%
+   column_spec(column = 1, width = "10em") %>%
+   column_spec(column = 2:15, width = "3em"))
+```
